@@ -18,13 +18,26 @@ Theory of cams/followers:
 
 https://www.researchgate.net/figure/Schematic-of-the-cam-follower-mechanism-adapted-from-Ref-33-The-cam-rotates-about_fig8_279290006
 
+ - [Nonlinear Passive Cam-Based Springs for Powered Ankle Prostheses](https://www.researchgate.net/publication/279290006_Nonlinear_Passive_Cam-Based_Springs_for_Powered_Ankle_Prostheses)
+
+- [MACHINE THEORY
+Bachelor in Mechanical Engineering
+CAMS DESIGN II](http://ocw.uc3m.es/ingenieria-mecanica/machine-theory/lectures-1/cams-design-ii)
+
 
 ![image](https://user-images.githubusercontent.com/1620953/141314608-24b17547-7e99-46c8-ba52-39db055723c9.png)
 
+
 https://www.softintegration.com/chhtml/toolkit/mechanism/cam/cgi_trans_sample.html
+
 
 3d cam example:
 
-![image](https://user-images.githubusercontent.com/1620953/141312905-53ddbb39-25a8-441e-94ea-09da226ff0c5.png)
+![image](cam-anim1.gif)
+
+
+https://mechtics.com/machine/mechanics-of-machines/cam-and-follower-mechanism-types-and-functions/
+
+
 
 In the future CamFollowerJS will implement export in  STL format for 3d printing.
