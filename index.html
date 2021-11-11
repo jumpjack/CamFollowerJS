@@ -5,11 +5,14 @@
 <script type="text/javascript" src="paper-full.min.js"></script>
 
 <script type="text/javascript" src="config.js"></script>
+<script type="text/javascript" src="testcam.js"></script>
 
 <!-- Define inlined PaperScript associate it with myCanvas -->
 <script type="text/paperscript" canvas="myCanvas">
 
 // Cam/follower mechanism simulator by Jumpjack
+// Version 0.1.1
+//  Added pressure angle
 // Version 0.1.0 - First public version - 11/11/2021
 //	To do:
 //	editable flat path;
@@ -23,7 +26,7 @@
 
 
 // Init internal variables and constants:
-camData = {};
+//camData = {};
 ANGLE_OFFSET = -90; // Internally used to have the cam profile starting at top rather than at right
 CAM_RADIUS 	= 100;
 CAM_CENTER_X 	= 180;
@@ -42,7 +45,7 @@ camCreated = false;
 flatPath = new Path();
 camPath = new Path();
 follower = new Path();
-
+normalVector = new Path();
 
 
 function loadFile() {
@@ -143,9 +146,9 @@ function assignCamData() {
 	CAM_STEPS_WIDTH 			= camData.stepsWidth;
 	ROTATION_DIRECTION 			= camData.rotationDir;
 
-	FOLLOWER_LENGTH =  20;
-	FOLLOWER_COLOR = '#2222AA';
-	FOLLOWER_WIDTH = 5;
+	FOLLOWER_LENGTH =  50;
+	FOLLOWER_COLOR = '#0000FF';
+	FOLLOWER_WIDTH = 10;
 
 	camPath.clear();
     camPath.strokeColor = CAM_LINE_COLOR;
@@ -153,7 +156,7 @@ function assignCamData() {
 	camPath.strokeWidth = CAM_WIDTH;
 	camPath.fillColor = CAM_FILL_COLOR;
 
-	camSegments = camData.segments;
+	//camSegments = camData.segments;
 
 	flatPath.clear();
     flatPath.strokeColor = CAM_FLATPATH_COLOR;
@@ -229,6 +232,44 @@ function onFrame(event) {
 	// Update follower position:
 	follower.segments[1].point.y = followerContactPoint.point.y;
 	follower.segments[0].point.y = followerContactPoint.point.y - FOLLOWER_LENGTH;
+
+	contactOffset = camPath.getOffsetOf(followerContactPoint.point);
+	normal = camPath.getNormalAt(contactOffset)*50;
+	if (normalVector)	 {
+		normalVector.clear();
+		normalVector.remove();
+	}
+    normalVector = new Path({
+        segments: [followerContactPoint.point, followerContactPoint.point + normal],
+        strokeColor: 'red'
+    });
+
+	normalVector.strokeColor = '#AAAAAA';
+	normalVector.strokeWidth = 2;
+
+
+	point1 = follower.segments[0].point;
+	point2 = normalVector.segments[1].point;
+
+/*		new Path.Circle({
+	            center: point1,
+	            radius: 5,
+	            strokeColor: '#BBBBBB'
+	    });
+
+
+		new Path.Circle({
+	            center:  point2,
+	            radius: 5,
+	            strokeColor: '#FF0000'
+	    });
+*/
+console.log(followerContactPoint);
+
+	vec1 = followerContactPoint.point + point1;
+	vec2 = followerContactPoint.point + point2;
+
+	document.getElementById("status").innerHTML = "<br>Normal: " + normal.angle.toFixed(0) + "<br>Pressure: "  + (-90-normal.angle).toFixed(0);//(vec1.getDirectedAngle(vec2)*180/3.14).toFixed(0);
 }
 
 
@@ -297,8 +338,8 @@ function createCam() {
 	// Draw flat path of cam on grid:
 	var start = new Point(0, 0);
 	flatPath.moveTo(start);
-	for (var i=0; i<camSegments.length; i++) {
-		flatPath.add(new Point(camSegments[i].x, camSegments[i].y));
+	for (var i=0; i<camData.segments.length; i++) {
+		flatPath.add(new Point(camData.segments[i].x, camData.segments[i].y));
 	}
 
 	//// Create the circular profile of the cam starting from the flat profile ////
@@ -335,8 +376,6 @@ function createCam() {
 		verticalLines[index].strokeColor = "#FF0000";
 	}
 	camPath.bringToFront();
-console.log("createCam ok ");
-
 }
 
 
@@ -366,11 +405,13 @@ function onMouseUp(event) {
 }
 */
 
-	//loadCamData();
-
-	//loadFile();
-
 drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
+	camCreated = false;
+	assignCamData();
+	//resetRotation();
+	createCam();
+	fileContents.value = JSON.stringify(camData,null,4);
+	camPath.bringToFront();
 
 /////////////
 
@@ -389,7 +430,7 @@ drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
 
 <body>
 <center><big><big>Javascript Cam/Follower mechanism generator/simulator</big></big><br>
-v. 0.1.0 - 11/11/2021<br>
+v. 0.1.1 - 11/11/2021<br>
 Made with <a href="http://paperjs.org/tutorials/">paper.js</a> by Jumpjack<br>
 Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 <br>
@@ -411,6 +452,7 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 	Points: <button id="btnShow" name="btnShow">Show</button><br>
 	<br>
 	<button id="btnExport" name="btnExport">Export</button><br>
+	Status: <span id="status" name="status"></span><br>
 	</td>
 
 	<td>
@@ -428,7 +470,6 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 	</td>
 </tr>
 <tr><td>
-	Status: <span id="status" name="status"></span><br>
 </td></tr>
 </table>
 </body>
