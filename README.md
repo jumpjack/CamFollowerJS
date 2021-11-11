@@ -19,6 +19,9 @@ Theory of cams/followers:
 https://www.researchgate.net/figure/Schematic-of-the-cam-follower-mechanism-adapted-from-Ref-33-The-cam-rotates-about_fig8_279290006
 
 
+![image](https://user-images.githubusercontent.com/1620953/141314608-24b17547-7e99-46c8-ba52-39db055723c9.png)
+
+https://www.softintegration.com/chhtml/toolkit/mechanism/cam/cgi_trans_sample.html
 
 3d cam example:
 
