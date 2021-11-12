@@ -58,7 +58,11 @@ Versions history
 Known problems:
   - 	Can't handle properly two points at same angle in flat path
 
-0.1.1 
+0.1.1
+ - Added visual and numeric pressure angle
+
+
+0.1.2 
  -  Added export to SVG format; please use one of these services to convert to STL:
     - https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html  (source: https://github.com/rcalme/svg-to-stl )
     - http://svg2stl.com/  
