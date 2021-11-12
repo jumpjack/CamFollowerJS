@@ -38,6 +38,27 @@ https://www.softintegration.com/chhtml/toolkit/mechanism/cam/cgi_trans_sample.ht
 
 https://mechtics.com/machine/mechanics-of-machines/cam-and-follower-mechanism-types-and-functions/
 
+3d printing
+-----------
 
+In the future CamFollowerJS will implement export in  STL format for 3d printing. In the meantime you can use some online service to convert the SVG output to STL:
+ - https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html  (source: https://github.com/rcalme/svg-to-stl )
+ - http://svg2stl.com/
 
-In the future CamFollowerJS will implement export in  STL format for 3d printing.
+Versions history
+---------------
+
+0.1.0 First public version; many things yet on the todo list:
+ - 	editable flat path;
+ - 	export in SVG format;
+ - 	export in STL format;
+ - 	tunable rotation speed/direction;
+ - 	add speed chart, angle chart, acceleration chart,...
+
+Known problems:
+  - 	Can't handle properly two points at same angle in flat path
+
+0.1.1 
+ -  Added export to SVG format; please use one of these services to convert to STL:
+    - https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html  (source: https://github.com/rcalme/svg-to-stl )
+    - http://svg2stl.com/  
