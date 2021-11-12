@@ -11,8 +11,16 @@
 <script type="text/paperscript" canvas="myCanvas">
 
 // Cam/follower mechanism simulator by Jumpjack
+
+// Version 0.1.2
+// Added exporting to SVG format.
+// Please use one of these servies to convert to STL for 3d printing:
+// https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html (source: https://github.com/rcalme/svg-to-stl )
+// http://svg2stl.com/
+
 // Version 0.1.1
 //  Added pressure angle
+
 // Version 0.1.0 - First public version - 11/11/2021
 //	To do:
 //	editable flat path;
@@ -264,7 +272,7 @@ function onFrame(event) {
 	            strokeColor: '#FF0000'
 	    });
 */
-console.log(followerContactPoint);
+
 
 	vec1 = followerContactPoint.point + point1;
 	vec2 = followerContactPoint.point + point2;
@@ -379,11 +387,42 @@ function createCam() {
 }
 
 
-function exportFlat() {
-	alert("To be implemented, see console.");
-	console.log(JSON.parse(camPath.exportJSON()));
-	console.log(camPath.exportSVG());
+function exportSVG() {
+	SVGheader = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300">\
+	<g fill="#AAA" stroke="#000000" stroke-width="1">';
+	SVGfooter = '  </g>\
+	</svg>';
+
+	SVGtext = camPath.exportSVG(   { asString: true}   );
+
+	// Before exporting, create a copy of cam and reposition it:
+	copy = camPath.clone();
+
+	// Define new center for cam
+    X_MARGIN = 10;
+    Y_MARGIN = 10;
+	newCenterX = camPath.bounds.width/2 + X_MARGIN;
+	newCenterY = camPath.bounds.height/2 + Y_MARGIN;
+
+	// Move copy to new position
+	copy.position = new Point(newCenterX, newCenterY );
+
+	// Create SVG export string
+	SVGtext = SVGheader + copy.exportSVG(   { asString: true}   ) + SVGfooter;
+
+	// Ask user to download the SVG version of the cam:
+	fileName = "cam.svg"; // Default suggested name
+	var url = "data:image/svg+xml;utf8," + encodeURIComponent(SVGtext); // Convert SVG string into downloadable format
+	copy.remove(); // Remove clone of the cam
+
+	// Prompt user for downloading:
+	var link = document.createElement("a");
+	link.download = fileName;
+	link.href = url;
+	link.click();
 }
+
+
 
 /*
 function onMouseDown(event) {
@@ -423,14 +462,14 @@ drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
 	document.getElementById("btnShow").addEventListener("click", toggleCamSelection);
 	document.getElementById("btnLoad").addEventListener("click", reload);
 	document.getElementById("fileinput").addEventListener("change", loadFile);
-	document.getElementById("btnExport").addEventListener("click", exportFlat);
+	document.getElementById("btnExportSVG").addEventListener("click", exportSVG);
 	document.getElementById("btnSave").addEventListener("click", saveCam);
 </script>
 </head>
 
 <body>
 <center><big><big>Javascript Cam/Follower mechanism generator/simulator</big></big><br>
-v. 0.1.1 - 11/11/2021<br>
+v. 0.1.2 - 12/11/2021<br>
 Made with <a href="http://paperjs.org/tutorials/">paper.js</a> by Jumpjack<br>
 Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 <br>
@@ -451,7 +490,11 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 	Rotation: <button id="btnStart" name="btnStart">Start</button><button id="btnStop" name="btnStop">Stop</button>	<button id="btnReset" name="btnStop">Reset</button><br>
 	Points: <button id="btnShow" name="btnShow">Show</button><br>
 	<br>
-	<button id="btnExport" name="btnExport">Export</button><br>
+	<button id="btnExportSVG" name="btnExportSVG">Export</button><br>
+	Please use one of these services to convert SVG file to STL format for 3d printing:<br>
+    <a href="https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html">https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html</a><br>
+    <a href=http://svg2stl.com/">http://svg2stl.com/</a><br>
+	<br>
 	Status: <span id="status" name="status"></span><br>
 	</td>
 
@@ -469,8 +512,7 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 		<button id="btnSave" name="btnSave">Save</button><br>
 	</td>
 </tr>
-<tr><td>
-</td></tr>
+
 </table>
 </body>
 </html>
