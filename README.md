@@ -66,4 +66,4 @@ Known problems:
  -  Added export to SVG format; please use one of these services to convert to STL:
     - https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html  (source: https://github.com/rcalme/svg-to-stl )
     - http://svg2stl.com/  
-    - https://yomboprime.github.io/svg2stl/ (drag and drop)
+    - https://yomboprime.github.io/svg2stl/ (drag and drop)  (source: https://github.com/yomboprime/svg2stl)
