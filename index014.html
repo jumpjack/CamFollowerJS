@@ -12,9 +12,6 @@
 
 // Cam/follower mechanism simulator by Jumpjack
 
-// 0.1.5
-// Added reference hole at center
-
 // Version 0.1.4
 // Added pressure angle path (hence circular cam moved to the right to get some space)
 // Fixed bug of bad calculation of follower contact point;
@@ -819,7 +816,7 @@ function exportSVG() {
 
 	SVGtext = camPath.exportSVG(   { asString: true}   );
 
-	// Before exporting, create a copy of cam and reposition it so as to touch top/left borders:
+	// Before exporting, create a copy of cam and reposition it:
 	copy = camPath.clone();
 
 	// Define new center for cam
@@ -827,31 +824,12 @@ function exportSVG() {
     Y_MARGIN = 10;
 	newCenterX = camPath.bounds.width/2 + X_MARGIN;
 	newCenterY = camPath.bounds.height/2 + Y_MARGIN;
+
 	// Move copy to new position
 	copy.position = new Point(newCenterX, newCenterY );
 
-	centerHole = new Path.Circle({
-	            center: new Point(CAM_RADIUS - X_MARGIN, CAM_RADIUS + Y_MARGIN),
-	            radius: '5',
-	            strokeColor: '#000000',
-				strokeWidth : '1',
-				fillColor: null
-	    })
-
-	centerDot = new Path.Circle({
-	            center: new Point(CAM_RADIUS - X_MARGIN, CAM_RADIUS + Y_MARGIN),
-	            radius: '1',
-	            strokeColor: '#000000',
-				strokeWidth : '1',
-				fillColor: null
-
-	    })
-
 	// Create SVG export string
-	SVGtext = SVGheader + copy.exportSVG(   { asString: true}   ) +
-	centerHole.exportSVG(   { asString: true}   ) +
-	centerDot.exportSVG(   { asString: true}   ) +
-	SVGfooter;
+	SVGtext = SVGheader + copy.exportSVG(   { asString: true}   ) + SVGfooter;
 
 	// Ask user to download the SVG version of the cam:
 	fileName = "cam.svg"; // Default suggested name
@@ -930,7 +908,7 @@ function onMouseUp(event) {
 
 <body>
 <center><big><big>Javascript Cam/Follower mechanism generator/simulator</big></big><br>
-v. 0.1.5 - 07/09/2022<br>
+v. 0.1.4 - 18/11/2021<br>
 Made with <a href="http://paperjs.org/tutorials/">paper.js</a> by Jumpjack<br>
 Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 
@@ -981,7 +959,7 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 		JSON imported data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<input type='button' id='btnUpdate' name='btnUpdate' value='Update' ><input type='button' id='btnSmooth' name='btnSmooth' value='Smooth' onclick="camPath.smooth()"><br>
 		<textarea id="fileContents" name="fileContents" cols=50 rows=30>
 		</textarea><br>
-
+		
 		SVG imported data:<br>
 		<textarea id="fileContentsSVG" name="fileContentsSVG" cols=50 rows=30>
 		</textarea><br>
