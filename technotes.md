@@ -1,11 +1,11 @@
 Some notes about how to plot a cam profile.
 
-## Knife follower
+## Knife edge follower
 
 Simplest method: the follower profile shall be just converted into polar coordinates, i.e. each vertical segment representing follower 
 edge distance from lower axis shall be converted into circle radius.
 
-## Roller follower
+## Roller follower ([video](https://www.youtube.com/watch?v=FDyo3u2WOlM))
 
 - 1: proceed like for knife follower, drawing a radius per each step in follower profile:
 
