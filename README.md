@@ -1,7 +1,8 @@
 # CamFollowerJS
 Generator and simulator of cams profiles for cam/follower mechanisms.
 
-![image](https://user-images.githubusercontent.com/1620953/141312388-9c3ec638-f62d-49df-a96e-2aecd7074bcc.png)
+![image](https://user-images.githubusercontent.com/1620953/189070285-a55ff4d8-2d31-4cd9-a810-046100ffb4cb.png)
+
 
 Try it here:  https://jumpjack.github.io/CamFollowerJS/
 
