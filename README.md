@@ -8,10 +8,16 @@ Try it here:  https://jumpjack.github.io/CamFollowerJS/
 
 **This page can work also offline on your PC** , just download all the .html and .js files in same folder.
 
+## Short description
+
 This page allows creating cam profiles for cam/follower mechanisms used in automata. The cam can be started from scratch, or loaded from an existing file, edited and saved again.
 
 The page loads the flat cartesian profile of the cam, and turns it into a circular/polar profile, the it starts rotating the cam as per aramters specified in the file itself (direction and speed) and shows how a follower follows the cam profile. Note: current version does not perform any check on output, so resulting cams could be impossible to realize in practice.
 
+## Known issues
+
+ - Bad tracking of contact point in upper chart when follower does not pass throuogh cam center
+ 
 ----------
 
 Things I would like to add in the future:
