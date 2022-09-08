@@ -25,6 +25,7 @@ Things I would like to add in the future:
 - cams library in json format
 - visual cams library
 - visual editing of cam profile using mouse
+- flat/roller follower support
 - parametric editing
 - STL direct export
 - combined motions simulator
