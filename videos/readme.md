@@ -1,6 +1,6 @@
 Some automata videos collected around.
 
-- http://l3d.cs.colorado.edu/~zathras/research/machineshop.html (now archived on https://web.archive.org/web/20161124020439/http://l3d.cs.colorado.edu/~zathras/research/machineshop.html); automata probably designed with an ancient "automata designer software" named "MachineShop" for MacOS; can't find it anywhere.
+- http://l3d.cs.colorado.edu/~zathras/research/machineshop.html (now archived on https://web.archive.org/web/20161124020439/http://l3d.cs.colorado.edu/~zathras/research/machineshop.html); automata probably designed with an ancient "automata designer software" named "[MachineShop](https://web.archive.org/web/20161124020439/http://l3d.cs.colorado.edu/~zathras/research/machineshop.html)" for MacOS by [Glenn Blauvelt](https://web.archive.org/web/20161124020439/http://l3d.cs.colorado.edu/~zathras/index.html); can't find it anywhere, and its development stopped in 2008.
 
 Soccer player:
 
