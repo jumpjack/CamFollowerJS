@@ -37,3 +37,7 @@ edge distance from lower axis shall be converted into circle radius.
 
 ![image](https://user-images.githubusercontent.com/1620953/189111042-de575a98-8055-46ac-bd6d-9119bfabe978.png)
 
+## Oscillating roller follower
+
+![image](https://user-images.githubusercontent.com/1620953/189130208-ab3719bc-b201-4304-aa99-2e4c2f868d20.png)
+
