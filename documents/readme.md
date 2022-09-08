@@ -4,23 +4,11 @@ Some documents, sites and resources about automata
 
 Web resources that focus on contemporaryautomata. Many of these offer support to teachers using automata in the classroom:
 
-## [Automata and Mechanical Toys](http://automata.co.uk/)
-
-A source for information on constructing automata with a focus on their use in education in the United Kingdom. Interactive CDs and some excellent books are offered for
+- [Automata and Mechanical Toys](http://automata.co.uk/) - A source for information on constructing automata with a focus on their use in education in the United Kingdom. Interactive CDs and some excellent books are offered for
 sale.
-
-## [Cabaret Mechanical Theatre](http://www.cabaret.co.uk)
-
-CMT is an excellent jumping off point for the budding automatist, from short biographies of some of the Cabaret artists to support for automata in education to virtual gallery exhibits. The online shop sells a variety of kits, books, videos, and professionally constructed automata.
-
-
-## [Chomick and Meder - Figurative Art and Automata](http://www.chomickmeder.com/)
-
-A blending of contemporary automata sensibilities with golden age appearance.
-
-## [Flying Pig](http://www.flying-pig.co.uk/)
-
-Similar to the Cabaret website in structure, it offers a complementary mix of educational material and automata kits.
+- [Cabaret Mechanical Theatre](http://www.cabaret.co.uk) - CMT is an excellent jumping off point for the budding automatist, from short biographies of some of the Cabaret artists to support for automata in education to virtual gallery exhibits. The online shop sells a variety of kits, books, videos, and professionally constructed automata.
+- [Chomick and Meder - Figurative Art and Automata](http://www.chomickmeder.com/) - A blending of contemporary automata sensibilities with golden age appearance.
+- [Flying Pig](http://www.flying-pig.co.uk/) - Similar to the Cabaret website in structure, it offers a complementary mix of educational material and automata kits.
 
 
 # E.2 Automata Builders
