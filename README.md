@@ -3,13 +3,29 @@ Generator and simulator of cams profiles for cam/follower mechanisms.
 
 ![image](https://user-images.githubusercontent.com/1620953/141312388-9c3ec638-f62d-49df-a96e-2aecd7074bcc.png)
 
-Try it here:  https://jumpjack.github.io/cam-follower-demo/
+Try it here:  https://jumpjack.github.io/CamFollowerJS/
 
-**This page can work also offline on your PC**
+**This page can work also offline on your PC** , just download all the .html and .js files in same folder.
 
 This page allows creating cam profiles for cam/follower mechanisms used in automata. The cam can be started from scratch, or loaded from an existing file, edited and saved again.
 
 The page loads the flat cartesian profile of the cam, and turns it into a circular/polar profile, the it starts rotating the cam as per aramters specified in the file itself (direction and speed) and shows how a follower follows the cam profile. Note: current version does not perform any check on output, so resulting cams could be impossible to realize in practice.
+
+----------
+
+Things I would like to add in the future:
+
+- cams library in json format
+- visual cams library
+- visual editing of cam profile using mouse
+- parametric editing
+- STL direct export
+- combined motions simulator
+- ....
+
+---------
+
+Automata resources (books, links,...): look https://github.com/jumpjack/CamFollowerJS/tree/main/documents
 
 ----------
 
@@ -68,3 +84,8 @@ Known problems:
     - https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html  (source: https://github.com/rcalme/svg-to-stl )
     - http://svg2stl.com/  
     - https://yomboprime.github.io/svg2stl/ (drag and drop)  (source: https://github.com/yomboprime/svg2stl)
+    
+...
+
+0.1.5
+ - Added center hole for shaft in exported SVG file
