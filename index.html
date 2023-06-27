@@ -12,6 +12,14 @@
 
 // Cam/follower mechanism simulator by Jumpjack
 
+// 0.2.0
+// Fixed bug of center hole not at center
+// Fixed bug of cam profile drawn from top/border rather than from bottom/center
+// Fixed bug of reversed cam rotation
+// Added circular zoom feature
+// Added full calculation at once of pressure angle curve (realtime and commanded)
+
+
 // 0.1.5
 // Added reference hole at center
 
@@ -39,7 +47,7 @@
 // http://svg2stl.com/
 
 // Version 0.1.1
-//  Added pressure angle
+//	Added pressure angle
 
 // Version 0.1.0 - First public version - 11/11/2021
 //	To do:
@@ -56,7 +64,7 @@
 
 
 // Init internal variables and constants:
-ANGLE_OFFSET 	= -90; // Internally used to have the cam profile starting at top rather than at right
+ANGLE_OFFSET 	= -90; // 90: Internally used to have the cam profile starting at top rather than at right
 CAM_RADIUS 		= 100;
 CAM_CENTER_X 	= 500;
 CAM_CENTER_Y	= 230;
@@ -69,8 +77,7 @@ CAM_POINTS_COLOR 			= config.pointsColor;
 CAM_FLATPATH_COLOR 			= config.flatpathColor;
 CAM_FLATPATH_POINTS_COLOR	= config.flatpathPointsColor;
 CAM_FLATPATH_WIDTH 			= config.flatpathWidth;
-CIRCULAR_PRECISION          = 1;
-
+CIRCULAR_PRECISION			= 1;
 FOLLOWER_LENGTH 			= config.followerLength;
 FOLLOWER_COLOR 				= config.followerColor;
 FOLLOWER_WIDTH 				= config.followerWidth;
@@ -78,200 +85,271 @@ followerOffsetX 			= config.initialFollowerOffsetX;
 followerOffsetY 			= config.initialFollowerOffsetY;
 FOLLOWER_TOP 				= new Point(CAM_CENTER_X + followerOffsetX, CAM_CENTER_Y + followerOffsetY - CAM_RADIUS);
 FOLLOWER_BOTTOM 			= new Point(CAM_CENTER_X + followerOffsetX, CAM_CENTER_Y + followerOffsetY - CAM_RADIUS - FOLLOWER_LENGTH);
-
-
 MAX_PRESSURE = config.maxPressure;
-
 NORMAL_COLOR = config.normalColor;
 NORMAL_WIDTH = config.normalWidth;
+ZERO_ZERO =	 new Point(GRID_X_OFFSET,				GRID_Y_OFFSET);
+UPPER_POINT = new Point(GRID_X_OFFSET,				GRID_Y_OFFSET + CAM_RADIUS);
+BOTTOM =		new Point(GRID_X_OFFSET + CAM_CENTER_X, GRID_Y_OFFSET + CAM_CENTER_Y + 200);
+FLAT_PROFILE_ORIGIN =	new Point(GRID_X_OFFSET,		 GRID_Y_OFFSET + CAM_RADIUS);
+PRESSURE_ANGLE_Y_OFFSET = 220;
+//pressureAngleCircles = [];
 
-ZERO_ZERO = new Point(0 + GRID_X_OFFSET, 0 + GRID_Y_OFFSET);
-UPPER_POINT = new Point(0 + GRID_X_OFFSET,CAM_RADIUS+ GRID_Y_OFFSET);
-BOTTOM = new Point(CAM_CENTER_X + GRID_X_OFFSET, CAM_CENTER_Y+200 + GRID_Y_OFFSET);
+createObjects();
 
-verticalLines = [];
-radii =[]; // Reference lines
-radiiReference = [];
-gridToFront = false;
-gridCircles = [];
-gridCirclesCount = 0;
-flatPathPointMarker = [];
-intersector = null; // Vertical line intersecating flat cam profile, used to generate circular profile
-allowRotation = false;
-camCreated = false;
-flatPath = new Path();
-camPath = new Path();
-camStaticReference = new Path();
-camStaticReference.visible=false;
-follower = new Path();
-normalVector = new Path();
-normalVector.strokeColor = NORMAL_COLOR;
-normalVector.strokeWidth = NORMAL_WIDTH;
+function createObjects() {
+	flatPath = new Path();
+	follower = new Path();
+	normalVector = new Path();
+	camPath = new Path();
 
-flatPathBall =  new Path.Circle({
-            center: ZERO_ZERO.clone(),
-            radius: 5,
-            strokeColor: '#000000',
-            fillColor: '#00AA00'
-    });
+	pressureAnglePath  = new Path({
+		strokeColor: '#000000',
+		strokeWidth: 1,
+		visible:true
+	});
 
-pressureAnglePointInitialY = 220  + GRID_Y_OFFSET;
-pressureAnglePointInitialPosition = new Point(0 + GRID_X_OFFSET, pressureAnglePointInitialY );
-pressureAnglePoint =  new Path.Circle({
-            center: pressureAnglePointInitialPosition,
-            radius: 5,
-            strokeColor: '#000000',
-            fillColor: '#FFFF00'
-    });
-pressureAnglePath = new Path();
-pressureAnglePath.strokeColor = '#000000';
-pressureAnglePath.strokeWidth = 3;
-pressureAnglePath.visible=true;
-pointToAdd = null;
-pressureAngle= 0;
-prevX = 0;
-prevY = 0;
-contactExists = false;
+	camStaticReference = new Path.Circle();
 
-camType = "JSON"; // Default preloaded cam
+	pressureAnglePointInitialY = PRESSURE_ANGLE_Y_OFFSET	+ GRID_Y_OFFSET;
+	pressureAnglePointInitialPosition = new Point();
+	pressureAnglePoint = new Path.Circle({
+		center : pressureAnglePointInitialPosition,
+		radius : 5,
+		strokeColor : '#000000',
+		fillColor : '#FFFF00'
+	});
+	pressureAnglePointInitialPosition.x = GRID_X_OFFSET
+	pressureAnglePointInitialPosition.y = pressureAnglePointInitialY;
+	createPressureAnglePath();
+
+	flatPathBall =	new Path.Circle({
+		center : FLAT_PROFILE_ORIGIN.clone(),
+		radius : 5,
+		strokeColor : '#000000',
+		fillColor : '#00AA00'
+	});
+
+	origin = new Point(CAM_CENTER_X,CAM_CENTER_Y);
+
+	INITIAL_FOLLOWER = new Path([origin,origin]);
+
+	intersectorStart = new Point(0 + GRID_X_OFFSET, CAM_RADIUS + GRID_Y_OFFSET);
+	intersectorEnd = new Point(0 + GRID_X_OFFSET, 0 + GRID_Y_OFFSET);
+	intersectorRayStart = new Point(CAM_CENTER_X + followerOffsetX, CAM_CENTER_Y + followerOffsetY + 100);
+	intersectorRayEnd = new Point(CAM_CENTER_X	+ followerOffsetX, CAM_CENTER_Y	+ followerOffsetY - CAM_RADIUS - 100);
+	intersector = new Path([intersectorStart,intersectorEnd]); // Invisible object, used internally to determine local radius of cam profile
+	intersectorRay = new Path([intersectorRayStart,intersectorRayEnd]); // Invisibile object, static: a vertical line crossing the cam, used to determine follower contact point
+
+	camStartPoint = new Point();
+	CSR= camStartPoint.clone();
+	drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
+}
+
+///////
+
+initVariables();
+
+function initVariables() {
+	/*ctx=myCanvas.getContext("2d");
+	ctx.fillStyle = "#ffffff";
+	ctx.fillRect(0, 0, myCanvas.width, myCanvas.height);
+	ctx.reset();*/
+
+	if (camPath) {camPath.parent.project.activeLayer.removeChildren()};
+	createObjects();
+	verticalLines = [];
+	radii = []; // Reference lines
+	radiiReference = [];
+	flatPathPointMarker = [];
+	allowRotation = false;
+	camCreated = false;
+	flatPath.name = "flatPath"
+	camPath.name = "camPath"
+	pressureAnglePath.name = "pressureAnglePath"
+	camStaticReference.visible=false;
+	normalVector.strokeColor = NORMAL_COLOR;
+	normalVector.strokeWidth = NORMAL_WIDTH;
+	minPressureAngle = 1000;
+	maxPressureAngle = -1000;
+	pointToAdd = null;
+	pressureAngle= 0;
+	prevX = 0;
+	prevY = 0;
+	contactExists = false;
+	camType = "JSON"; // Default preloaded cam
+	totAngle=1;
+	intersectorRay.strokeColor = '#000000';
+	camCreated = false;
+
+	assignCamData();
+	createCam();
+	fileContents.value = JSON.stringify(camData,null,4);
+}
+
+
+
+	document.getElementById("btnStart").addEventListener("click", startRotation);
+	document.getElementById("btnStop").addEventListener("click", stopRotation);
+	document.getElementById("btnReset").addEventListener("click", resetRotation);
+	document.getElementById("btnShow").addEventListener("click", toggleCamSelection);
+//	document.getElementById("btnUpdate").addEventListener("click", update,"RELOAD");
+	document.getElementById("fileinput").addEventListener("change", loadFile);
+	document.getElementById("SVGfileinput").addEventListener("change", importSVG);
+	document.getElementById("btnExportSVG").addEventListener("click", exportSVG);
+	document.getElementById("btnSave").addEventListener("click", saveCam);
+	document.getElementById("rngRotation").addEventListener("change", rotateBySlider);
+	document.getElementById("rngRotation").addEventListener("input", rotateBySlider);
+	document.getElementById("btnGrid").addEventListener("click", toggleCircularGrid);
+	document.getElementById("rngFollowerOffset").addEventListener("change", moveFollower);
+	document.getElementById("rngFollowerOffset").addEventListener("input", moveFollower);
+	//document.getElementById("rngZoom").addEventListener("input", update,"ZOOM");
+	document.getElementById("btnFollowerReset").addEventListener("click", function () { rngFollowerOffset.value = 0; moveFollower() });
+	document.getElementById("btnRecalcPressure").addEventListener("click", fullRotation);
+	document.getElementById("btnUpdate").onclick=function() {
+		update("RELOAD");
+	};
+	document.getElementById("rngZoom").oninput=function() {
+	  update("ZOOM");
+	};
+
+
+
+fullRotation();
+
+
 
 function drawMarkers() {
-	localAngle = 360-totAngle;
+	localAngle = totAngle;
 	if (localAngle < 0) localAngle += 360;
-    pressureAnglePoint.position.x = localAngle + GRID_X_OFFSET;
-    pressureAnglePoint.position.y = pressureAnglePointInitialY + pressureAngle;
-	flatPathBall.position.x = localAngle  + GRID_X_OFFSET;
-	flatPathBall.position.y = followerContactPoint.y - 130  + GRID_Y_OFFSET;
+	if (localAngle > 360) localAngle = 360 - localAngle;
+	calculatePressureAngle();
+	pressureAnglePoint.position.x = localAngle + GRID_X_OFFSET;
+	pressureAnglePoint.position.y = pressureAnglePointInitialY + pressureAngle;
+	flatPathBall.position.x = localAngle	+ GRID_X_OFFSET;
+	flatPathBall.position.y = followerContactPoint.y - 130	+ GRID_Y_OFFSET;
 }
 
 
 
 function createPressureAnglePath() {
-    pressureAnglePath.clear();
-	for (var i=0; i < 360; i++) {
-	    pressureAnglePath.add(new Point(i + GRID_X_OFFSET, pressureAnglePointInitialY + pressureAngle ));
+	pressureAnglePath.clear();
+	// Create a flat path; it will be updated in realtime during cam rotation:
+	for (var i=1; i < 360; i++) { // debug 1 o 0?
+		pressureAnglePath.add(new Point(360 - i + GRID_X_OFFSET, pressureAnglePointInitialY  ));
+		//var circ = new Path.Circle(new Point(360 - i + GRID_X_OFFSET, pressureAnglePointInitialY ), 5)
+		//circ.fillColor = 'yellow';
+		//circ.strokeColor = 'black';
+		//circ.strokeWidth = 1;
+		//pressureAnglePath.add(circ);
+		//pressureAngleCircles.push(circ);
 	}
 
+
+
+ // Draw ticks on left axis:
+
+ // Tick +90
 	dummy = new Path();
 	dummy.strokeColor = '#000000';
 	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY - 90 ));
-	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY - 90 ));
-
+	dummy.add(new Point(360 +GRID_X_OFFSET, pressureAnglePointInitialY - 90  ));
 	var pressureText = new paper.PointText();
 	pressureText.content='+90';
-	pressureText.position.y = pressureAnglePointInitialY -  90 ;
+	pressureText.position.y = pressureAnglePointInitialY -	90  ;
 
-	dummy = new Path(); // Max
+ // Tick Max
+	dummy = new Path();
 	dummy.strokeColor = '#FF0000';
-	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY - MAX_PRESSURE ));
-	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY - MAX_PRESSURE ));
-
+	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY - MAX_PRESSURE  ));
+	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY - MAX_PRESSURE  ));
 	var pressureText = new paper.PointText();
 	pressureText.content='Max';
-	pressureText.position.y = pressureAnglePointInitialY - MAX_PRESSURE - 10 ;
+	pressureText.position.y = pressureAnglePointInitialY - MAX_PRESSURE - 10  ;
 
 
+ // Tick -90
 	dummy = new Path();
 	dummy.strokeColor = '#000000';
-	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY ));
-	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY ));
-
+	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY  ));
+	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY  ));
 	var pressureText = new paper.PointText();
 	pressureText.content='-90';
-	pressureText.position.y = pressureAnglePointInitialY + 90 ;
+	pressureText.position.y = pressureAnglePointInitialY + 90  ;
 
-
-
-	dummy = new Path(); // Min
+ // Tick Min
+	dummy = new Path();
 	dummy.strokeColor = '#FF0000';
-	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY + MAX_PRESSURE ));
-	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY + MAX_PRESSURE  ));
-
+	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY + MAX_PRESSURE  ));
+	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY + MAX_PRESSURE 	));
 	var pressureText = new paper.PointText();
 	pressureText.content='Min';
-	pressureText.position.y = pressureAnglePointInitialY + MAX_PRESSURE - 10 + GRID_Y_OFFSET;
+	pressureText.position.y = pressureAnglePointInitialY + MAX_PRESSURE - 10 + GRID_Y_OFFSET  ;
 
-
-
+	// Chart title:
 	dummy = new Path();
 	dummy.strokeColor = '#000000';
-	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY + 90 ));
-	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY + 90 ));
-
+	dummy.moveTo(new Point(15 + GRID_X_OFFSET, pressureAnglePointInitialY + 90  ));
+	dummy.add(new Point(360 + GRID_X_OFFSET, pressureAnglePointInitialY + 90  ));
 	var pressureText = new paper.PointText();
 	pressureText.content='Pressure Angle:';
-	pressureText.position.y = 115 + GRID_Y_OFFSET ;
+	pressureText.position.y = 115 + GRID_Y_OFFSET  ;
 }
-
-camStartPoint = new Point();
-CSR= camStartPoint.clone();
-totAngle=0;
-
-origin = new Point(CAM_CENTER_X,CAM_CENTER_Y);
-INITIAL_FOLLOWER = new Path(origin, origin); // Dummy coordinates, just for creation;
-
-
-intersector = new Path(); // Invisible object, used internally to determine local radius of cam profile
-intersector.moveTo(new Point(0 + GRID_X_OFFSET, CAM_RADIUS + GRID_Y_OFFSET));
-intersector.add(new Point(0 + GRID_X_OFFSET, 0 + GRID_Y_OFFSET));
-
-intersectorRay = new Path(); // Invisibile object, static: a vertical line crossing the cam, used to determine follower contact point
-intersectorRay.moveTo(new Point(CAM_CENTER_X + followerOffsetX, CAM_CENTER_Y + followerOffsetY + 100));
-intersectorRay.add(new Point(CAM_CENTER_X  + followerOffsetX, CAM_CENTER_Y  + followerOffsetY - CAM_RADIUS - 100));
-intersectorRay.strokeColor = '#000000';
 
 
 function moveFollower() {
-    followerOffsetX = rngFollowerOffset.value*1;
+	followerOffsetX = rngFollowerOffset.value*1;
 	follower.segments[0].point.x = FOLLOWER_TOP.x + followerOffsetX;
-    intersectorRay.segments[0].point.x = FOLLOWER_TOP.x + followerOffsetX;
+	intersectorRay.segments[0].point.x = FOLLOWER_TOP.x + followerOffsetX;
 	follower.segments[1].point.x = FOLLOWER_TOP.x + followerOffsetX;
-    intersectorRay.segments[1].point.x = FOLLOWER_TOP.x + followerOffsetX;
+	intersectorRay.segments[1].point.x = FOLLOWER_TOP.x + followerOffsetX;
 	normalVector.bringToFront();
+	//rotateBySlider();
+	if (chkPressReal.checked) {fullRotation()};
 }
 
 
 function importSVG() {
 // Load SVG file containing definition of circular path //
-  var input, file, fr;
-  if (typeof window.FileReader !== 'function') {
-    alert("The file API isn't supported on this browser yet.");
-    return;
-  }
-  input = document.getElementById('SVGfileinput');
-  if (!input) {
-    alert("Um, couldn't find the fileinput element.");
-  }
-  else if (!input.files) {
-    alert("This browser doesn't seem to support the `files` property of file inputs.");
-  }
-  else if (!input.files[0]) {
-  }
-  else {
+	var input, file, fr;
+	if (typeof window.FileReader !== 'function') {
+	alert("The file API isn't supported on this browser yet.");
+	return;
+	}
+	input = document.getElementById('SVGfileinput');
+	if (!input) {
+	alert("Um, couldn't find the fileinput element.");
+	}
+	else if (!input.files) {
+	alert("This browser doesn't seem to support the `files` property of file inputs.");
+	}
+	else if (!input.files[0]) {
+	}
+	else {
 	file = input.files[0];
-    fr = new FileReader();
-    fr.onload = processReceivedTextSVG;
-    fr.readAsText(file);
-  }
+	fr = new FileReader();
+	fr.onload = processReceivedTextSVG;
+	fr.readAsText(file);
+	}
 }
 
 
 function processReceivedTextSVG(e) {
 	console.log("SVG loaded, importing...",e);
-	flatPath.clear();
+	flatPath.remove();
 	camPath.clear();
 	camStaticReference.remove();
 	CSR.remove();
 	camStartPoint.remove();
 	for (var i=0; i< flatPathPointMarker.length; i++) {
-    	flatPathPointMarker[i].remove();
+		flatPathPointMarker[i].remove();
 	}
 
 
 	var lines = e.target.result;
 	filename.innerHTML = SVGfileinput.value;
 	SVGfileinput.value="";
-  	fileContentsSVG.value=lines;
+		fileContentsSVG.value=lines;
 	fileContents.value = "";
 	rawPathStart = lines.indexOf("path");
 	rawPathStart = lines.indexOf("d=", rawPathStart+1) + 3;
@@ -287,12 +365,12 @@ function processReceivedTextSVG(e) {
 	}
 
 
-  	camStartPoint = new Path.Circle({
-            center: startPosition,
-            radius: 5,
-            strokeColor: '#000000',
-            fillColor: '#FFFF00'
-    });
+		camStartPoint = new Path.Circle({
+			center: startPosition,
+			radius: 5,
+			strokeColor: '#000000',
+			fillColor: '#FFFF00'
+	});
 	CSR = camStartPoint.clone()
 
 	// Cam first point:
@@ -300,50 +378,50 @@ function processReceivedTextSVG(e) {
 	camPath.moveTo(camStart); // Set first point of cam path to user-defined start position
 	camPath.position = origin;
 
-    camPath.strokeColor = CAM_LINE_COLOR;
-    camPath.selectedColor = CAM_POINTS_COLOR;
+	camPath.strokeColor = CAM_LINE_COLOR;
+	camPath.selectedColor = CAM_POINTS_COLOR;
 	camPath.strokeWidth = CAM_WIDTH;
 	camPath.fillColor = CAM_FILL_COLOR;
 	camCreated = true;
 
-    camStaticReference = camPath.clone();
+	camStaticReference = camPath.clone();
 	camStaticReference.visible=false;
 	camPath.visible = true;
-    camType = "SVG";
+	camType = "SVG";
 console.log("Cam SVG loading complete.");
 }
 
 
 function loadFile() {
 // Load json file containing definition of flat path //
-  var input, file, fr;
+	var input, file, fr;
 
-  if (typeof window.FileReader !== 'function') {
-    alert("The file API isn't supported on this browser yet.");
-    return;
-  }
+	if (typeof window.FileReader !== 'function') {
+	alert("The file API isn't supported on this browser yet.");
+	return;
+	}
 
-  input = document.getElementById('fileinput');
+	input = document.getElementById('fileinput');
 
-  if (!input) {
-    alert("Um, couldn't find the fileinput element.");
-  }
-  else if (!input.files) {
-    alert("This browser doesn't seem to support the `files` property of file inputs.");
-  }
-  else if (!input.files[0]) {
-  }
-  else {
+	if (!input) {
+	alert("Um, couldn't find the fileinput element.");
+	}
+	else if (!input.files) {
+	alert("This browser doesn't seem to support the `files` property of file inputs.");
+	}
+	else if (!input.files[0]) {
+	}
+	else {
 	file = input.files[0];
 	try {
-	    fr = new FileReader();
-	    fr.onload = processReceivedText;
-	    fr.readAsText(file);
+		fr = new FileReader();
+		fr.onload = processReceivedText;
+		fr.readAsText(file);
 	} catch (e) {
 		alert("Error loading file");
 		console.log("Error loading file, " , e);
 	}
-  }
+	}
 }
 
 
@@ -361,26 +439,25 @@ function processReceivedText(e) {
 		return -1;
 	}
 
-	flatPath.clear();
+	flatPath.remove();
 	camPath.clear();
 	camStaticReference.remove();
 	CSR.remove();
 	camStartPoint.remove();
 	for (var i=0; i< flatPathPointMarker.length; i++) {
-    	flatPathPointMarker[i].remove();
+		flatPathPointMarker[i].remove();
 	}
 	camCreated = false;
-    fileinput.value="";
+	fileinput.value="";
 	console.log("Recreating cam from JSON...");
 	assignCamData();
 	createCam();
-	console.log("Done.");
 	resetRotation();
 
 	camPath.bringToFront();
-  	camStartPoint.bringToFront();
+		camStartPoint.bringToFront();
 
-    camType = "JSON";
+	camType = "JSON";
 
 }
 
@@ -389,60 +466,54 @@ function processReceivedText(e) {
 function saveCam () {
 		allowRotation = false;
 		resetRotation();
-        var filename = "cam.json";
-        var text = fileContents.value;
-        var blob = new Blob([text], {type:'text/plain'});
-        var link = document.createElement("a");
-        link.download = filename;
-        link.href = window.URL.createObjectURL(blob);
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(function()  {
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(link.href);
-        }, 100);
-    }
+		var filename = "cam.json";
+		var text = fileContents.value;
+		var blob = new Blob([text], {type:'text/plain'});
+		var link = document.createElement("a");
+		link.download = filename;
+		link.href = window.URL.createObjectURL(blob);
+		document.body.appendChild(link);
+		link.click();
+		setTimeout(function()	{
+			document.body.removeChild(link);
+			window.URL.revokeObjectURL(link.href);
+		}, 100);
+	}
 
 
 
 
-function update() {
+function update(updateType) {
 // Security restrictions prevent from reloading a modified file without user intervention, hence "reload"
 // is performed on temporary data shown on the page
-	try {
-		console.log("JSON REloaded, parsing...");
-		camData = JSON.parse(fileContents.value);
-//		fileContents.innerHTML = lines;
-		console.log("cam data Reloaded: ", camData);
-	} catch (e){
-		alert("Invalid JSON file:" + e);
-		console.log("Invalid JSON file:" + e);
-	}
-	console.log("Applying...");
-	ctx=myCanvas.getContext("2d");
-	ctx.fillStyle = "#ffffff";
-	ctx.fillRect(0, 0, myCanvas.width, myCanvas.height);
-	flatPath.clear();
-	camPath.clear();
+	if(updateType === "RELOAD") {
 
-	flatPath.clear();
-	camPath.clear();
-	camStaticReference.remove();
-	CSR.remove();
-	camStartPoint.remove();
-	for (var i=0; i< flatPathPointMarker.length; i++) {
-    	flatPathPointMarker[i].remove();
+		try {
+			console.log("JSON REloaded, parsing...");
+			camData = JSON.parse(fileContents.value);
+			console.log("cam data Reloaded: ", camData);
+			document.getElementById("spnStatus").innerHTML = "Cam data reloaded";
+		} catch (e){
+				document.getElementById("spnStatus").innerHTML = "Invalid JSON data:" + e.toString();
+				alert("Invalid JSON file:" + e);
+				console.log("Invalid JSON file:" + e);
+
+			return;
+		}
+
 	}
 
-	assignCamData();
-	createCam();
+	initVariables();
+	//assignCamData();
+	//createCam();
 	resetRotation();
 	camPath.bringToFront();
 	camPath.visible=true;
-  	camStartPoint.bringToFront();
+	camStartPoint.bringToFront();
 
-	console.log("Done.");
-
+	if(updateType === "ZOOM") {
+		spnStatus.innerHTML = "not implemented";
+	}
 }
 
 
@@ -469,9 +540,9 @@ function assignCamData() {
 	follower.remove();
 	follower = INITIAL_FOLLOWER.clone();
 	follower.segments[0].point = FOLLOWER_TOP;
-	follower.segments[1].point =  FOLLOWER_BOTTOM;
-    follower.segments[0].point.x = FOLLOWER_TOP.x + followerOffsetX;
-    follower.segments[1].point.x = FOLLOWER_BOTTOM.x + followerOffsetX;
+	follower.segments[1].point =	FOLLOWER_BOTTOM;
+	follower.segments[0].point.x = FOLLOWER_TOP.x + followerOffsetX;
+	follower.segments[1].point.x = FOLLOWER_BOTTOM.x + followerOffsetX;
 	follower.strokeColor = FOLLOWER_COLOR;
 	follower.strokeWidth = FOLLOWER_WIDTH;
 	follower.bringToFront();
@@ -497,9 +568,16 @@ function stopRotation() {
 	allowRotation=false;
 }
 
+function fullRotation() {
+	var temp = rngRotation.value * 1.0;
+	for (var i=1; i < 360; i += CAM_ROTATION_SPEED) {
+		rotateCam(ROTATION_DIRECTION * CAM_ROTATION_SPEED, "full");
+	}
+	rotateCam(temp, "full");
+}
 
 function rotateCam(angle, type) {
-
+console.log(chkPressReal.checked,type);
 		camPath.remove();
 		camPath = camStaticReference.clone();
 		camStartPoint.remove();
@@ -507,8 +585,8 @@ function rotateCam(angle, type) {
 
 
 	if (type == "manual") {
-        totAngle = angle; // Manual --> absolute angle
-        rngRotation.value = totAngle;
+		totAngle = angle; // Manual --> absolute angle
+		rngRotation.value = totAngle;
 	} else {
 		// anim --> delta angle
 		totAngle += angle;
@@ -516,17 +594,18 @@ function rotateCam(angle, type) {
 			totAngle = totAngle - 360;
 		}
 		if (totAngle < 0) {
-			totAngle =  totAngle + 360;
+			totAngle =	totAngle + 360;
 		}
 		rngRotation.value = totAngle;
 	}
 	lblAngle.innerHTML = rngRotation.value;
+	spnCount.innerHTML = camPath.parent.children.length;
 
 	camPath.rotate(totAngle, origin);
 
 	// Rotate reference lines
 	for (var i=0; i< radii.length; i++) {
-    if (radii[i]) {
+		if (radii[i]) {
 			radii[i].remove();
 		}
 		radii[i] = radiiReference[i].clone();
@@ -534,24 +613,41 @@ function rotateCam(angle, type) {
 		radii[i].rotate(totAngle, origin);
 	}
 
+	if (type === "full") {
+		if (chkPressReal.checked) {
+			calculatePressureAngle(); // In case of full rotation at once, redraw pressure angle plot only if checkbox checked
+		} else {
+			// Don't draw
+		}
+	} else {
+			calculatePressureAngle();
+	}
 
-	calculatePressureAngle();
 	indexPressure = 360 - (totAngle - 1);
 	if (indexPressure < 0) indexPressure = 0;
 	if (indexPressure >360 ) indexPressure = indexPressure - 360;
+	if ( pressureAngle	< minPressureAngle) { minPressureAngle = pressureAngle}
+	if ( pressureAngle	> maxPressureAngle) { maxPressureAngle = pressureAngle}
 	try {
 		pressureAnglePath.segments[indexPressure].point.y = pressureAnglePointInitialY + pressureAngle;
+		//var tempX = pressureAngleCircles[indexPressure].getPosition().x;
+		//var tempY = pressureAnglePointInitialY + pressureAngle;
+		//console.log(indexPressure,tempX,pressureAnglePointInitialY + pressureAngle)
+		//pressureAngleCircles[indexPressure].setPosition(tempX,tempY); // DEBUG
 	} catch (e) {
-		console.log("Warning, cannot update pressure angle curve");
+		console.log("Warning, cannot update pressure angle curve: ", e);
 	}
 	indexPressure++;
 	if (indexPressure > 359) {
-        indexPressure = indexPressure - 360;
+		indexPressure = indexPressure - 360;
 	}
 	try {
 		pressureAnglePath.segments[indexPressure].point.y = pressureAnglePointInitialY + pressureAngle + 1;
+		//var tempX = pressureAngleCircles[indexPressure].getPosition().x;
+		//var tempY = pressureAnglePointInitialY + pressureAngle + 1;
+		//pressureAngleCircles[indexPressure].setPosition(tempX,tempY); // DEBUG
 	} catch (e) {
-		console.log("Warning 2, cannot update pressure angle curve");
+		console.log("Warning 2, cannot update pressure angle curve: ", e);
 	}
 
 	drawMarkers();
@@ -564,6 +660,7 @@ function rotateCam(angle, type) {
 
 	camStaticReference.visible=false;
 	camPath.visible = true;
+	normalVector.bringToFront();
 }
 
 
@@ -580,7 +677,7 @@ function toggleCamSelection() {
 }
 
 function toggleCircularGrid() {
-  gridToFront = !gridToFront;
+	gridToFront = !gridToFront;
 	setCircularGridVisibvility(gridToFront)
 }
 
@@ -612,7 +709,7 @@ function onFrame(event) {
 
 	// Rotate cam
 	rotateCam(ROTATION_DIRECTION * CAM_ROTATION_SPEED, "anim");
-
+//console.log("ROTATION_DIRECTION * CAM_ROTATION_SPEED",ROTATION_DIRECTION * CAM_ROTATION_SPEED);
 	follower.bringToFront();
 	normalVector.bringToFront();
 	camStartPoint.bringToFront();
@@ -622,17 +719,19 @@ function onFrame(event) {
 
 function calculatePressureAngle() {
 	// Calculate point of contact of follower with cam:
-    intersections = intersectorRay.getIntersections(camPath);
+	intersections = intersectorRay.getIntersections(camPath);
 	if (intersections.length>0) {
 		followerContactPoint = intersections[intersections.length-1].point;
 		prevX = followerContactPoint.x;
 		prevY = followerContactPoint.y;
 		follower.strokeColor = FOLLOWER_COLOR;
-        contactExists = true;
+		contactExists = true;
+		spnStatus.innerHTML = "OK";
 	} else {
-        followerContactPoint = new Point(prevX, CAM_CENTER_Y + CAM_RADIUS);
+		followerContactPoint = new Point(prevX, CAM_CENTER_Y + CAM_RADIUS);
 		follower.strokeColor = '#FFAA00';
 		contactExists=false;
+		spnStatus.innerHTML = "ERROR! no follower/cam intersection found!";
 		//return -1;
 	}
 
@@ -644,31 +743,38 @@ function calculatePressureAngle() {
 
 	contactOffset = camPath.getOffsetOf(followerContactPoint);
 	normal = camPath.getNormalAt(contactOffset)*50;
+	normal2 = normal.rotate(origin);
 	if (normalVector)	 {
 		normalVector.clear();
 		normalVector.remove();
 		normalVector= new Path({
-	        segments: [followerContactPoint, followerContactPoint + normal]
-	    });
+			segments: [followerContactPoint	, followerContactPoint - normal] // Draw segment normal to cam profile
+		});
 		normalVector.strokeColor = NORMAL_COLOR;
 		normalVector.strokeWidth = NORMAL_WIDTH;
-        normalVector.bringToFront();
+		normalVector.bringToFront();
 	} else {
-    	normalVector[0]= new Point(followerContactPoint, followerContactPoint + normal);
-        normalVector.bringToFront();
+console.log("NO NORMAL VECTOR?!?"); // debug delete this part?
+		normalVector[0]= new Point(followerContactPoint, followerContactPoint + normal);
+		normalVector.bringToFront();
 	}
 
-	pressureAngle = (-90-normal.angle);
-	if (-pressureAngle * ROTATION_DIRECTION > MAX_PRESSURE) {
-	    spnPressure.style="color:#FF0000;";
+	pressureAngle =  normal.angle - 90;
+	message = "";
+//console.log("NORM=",normal.angle, normal.angle);
+	if (Math.abs(-pressureAngle * ROTATION_DIRECTION) > MAX_PRESSURE) {
+		spnPressure.style="color:#FF0000;";
 		follower.strokeColor = '#FF0000';
+		//spnStatus.innerHTML = "WARNING! Pressure angle > " + MAX_PRESSURE;
+		message = "TOO HIGH!";
 	} else {
-	    spnPressure.style="color:#000000;";
-		follower.strokeColor =  FOLLOWER_COLOR;
+		spnPressure.style="color:#000000;";
+		follower.strokeColor =	FOLLOWER_COLOR;
+		//spnStatus.innerHTML = "ok";
+		message = "";
 	}
 	normalVector.bringToFront();
-	document.getElementById("spnPressure").innerHTML = pressureAngle.toFixed(0);
-
+	document.getElementById("spnPressure").innerHTML = pressureAngle.toFixed(0) + " " + message;
 }
 
 
@@ -676,9 +782,9 @@ function resetRotation () {
 // debug: aggiustare in modo che non cancelli la camma caricata ////
 	if (!camCreated) return -1;
 
-	rngRotation.value = 0;
+	rngRotation.value = 1;
 	rotateCam(0,"manual");
-  camStartPoint.bringToFront();
+	camStartPoint.bringToFront();
 
 }
 
@@ -686,13 +792,16 @@ function resetRotation () {
 
 
 function drawGrid(topLeft, bottomRight, gridStepX, gridStepY) {
+	gridToFront = false;
+	gridCircles = [];
+	gridCirclesCount = 0;
 	// Draw vertical lines of grid
 	for (var x=topLeft.x; x < bottomRight.x; x += gridStepX) {
 		segment = new Path();
 		segment.strokeColor = '#DDDDDD';
 		segment.strokeWidth = 1;
-		segment.moveTo(new Point(x  + GRID_X_OFFSET, topLeft.y + GRID_Y_OFFSET));
-		segment.add(new Point(x + GRID_X_OFFSET    , bottomRight.y + GRID_Y_OFFSET));
+		segment.moveTo(new Point(x	+ GRID_X_OFFSET, topLeft.y + GRID_Y_OFFSET));
+		segment.add(new Point(x + GRID_X_OFFSET	, bottomRight.y + GRID_Y_OFFSET));
 	}
 
 	// Draw horizontal lines of grid and circles on cam
@@ -704,20 +813,24 @@ function drawGrid(topLeft, bottomRight, gridStepX, gridStepY) {
 		segment.add(new Point(bottomRight.x + GRID_X_OFFSET, y + GRID_Y_OFFSET));
 
 		gridCircles.push(new Path.Circle({
-	            center: new Point(CAM_CENTER_X, CAM_CENTER_Y),
-	            radius: y,
-	            strokeColor: '#BBBBBB'
-	    }));
+				center: new Point(CAM_CENTER_X, CAM_CENTER_Y),
+				radius: y,
+				strokeColor: '#BBBBBB'
+		}));
 
 		gridCirclesCount++;
 	}
 
 	// Draw top and bottom line of grid
+
+	// Top:
 	segment = new Path();
 	segment.strokeColor = '#000000';
 	segment.moveTo(ZERO_ZERO);
 	segment.add(new Point(bottomRight.x + GRID_X_OFFSET,0 + GRID_Y_OFFSET));
 
+
+	// Bottom
 	segment = new Path();
 	segment.strokeColor = '#000000';
 	segment.moveTo(UPPER_POINT);
@@ -727,20 +840,20 @@ function drawGrid(topLeft, bottomRight, gridStepX, gridStepY) {
 
 function createCam() {
 //	if (camCreated) return -1;
-    camCreated = true;
-
+	camPath.clear();
+	camCreated = true;
 	// Draw flat path of cam on grid:
-	var start = ZERO_ZERO.clone();
+	var start = FLAT_PROFILE_ORIGIN.clone();
 	flatPath.moveTo(start);
 	for (var i=0; i < camData.segments.length; i++) {
-		flatPathPoint = new Point(camData.segments[i].x + GRID_X_OFFSET, camData.segments[i].y + GRID_Y_OFFSET);
+		flatPathPoint = new Point(camData.segments[i].x + GRID_X_OFFSET, CAM_RADIUS - rngZoom.value*(camData.segments[i].y) + GRID_Y_OFFSET); // debug
 		flatPath.add(flatPathPoint);
-  		flatPathPointMarker.push(new Path.Circle({
-        	   center: flatPathPoint,
-	            radius: 5,
-	            strokeColor: '#000000',
-	            fillColor: '#FF0000'
-	    }));
+			flatPathPointMarker.push(new Path.Circle({
+				 center: flatPathPoint,
+				radius: 5,
+				strokeColor: '#000000',
+				fillColor: '#FF0000'
+		}));
 	}
 	flatPath.bringToFront();
 
@@ -749,16 +862,15 @@ function createCam() {
 intersector.visible=true;
 //console.log(intersector);
 	intersection = flatPath.getIntersections(intersector);
-console.log(intersection);
 	startPosition = new Point(CAM_CENTER_X + (CAM_RADIUS-intersection[0].point.y) + GRID_X_OFFSET, CAM_CENTER_Y ) ; // Start from right, then proceed CCW
 	startPosition = startPosition.rotate(ANGLE_OFFSET, origin); // Rotate startig point from righ side to top side
 
-  	camStartPoint = new Path.Circle({
-            center: startPosition,
-            radius: 5,
-            strokeColor: '#000000',
-            fillColor: '#FFFF00'
-    });
+	camStartPoint = new Path.Circle({
+			center: startPosition,
+			radius: 1,
+			strokeColor: '#000000',
+			fillColor: '#FFFF00'
+	});
 	CSR = camStartPoint.clone()
 
 	// Cam first point:
@@ -770,17 +882,24 @@ console.log(intersection);
 	for (var degr = 0 ; degr <= 360; degr += CIRCULAR_PRECISION) {
 		intersector.position.x = degr + GRID_X_OFFSET; // "Move" intersector along flat profile
 		intersection = flatPath.getIntersections(intersector); // Calculate intersection to determine cam local radius
-		vector.angle = degr + ANGLE_OFFSET; // Rotate the vector at each step/segment of the flat path
-		vector.length = CAM_RADIUS - intersection[0].point.y + GRID_Y_OFFSET; // Set cam local radius
-		relativePoint = origin + vector; // Calculate position of point representing local radius of cam
-		camPath.add(new Point(relativePoint.x, relativePoint.y)); // Add point to circular profile
+		if (intersection.length >0) {
+			vector.angle = -degr + ANGLE_OFFSET; // Rotate the vector at each step/segment of the flat path
+			vector.length = (CAM_RADIUS - intersection[0].point.y + GRID_Y_OFFSET); // Set cam local radius
+	//console.log("INT=",intersection);
+	//console.log("V=",intersection[0].point.y.toFixed(0),vector.angle.toFixed(0),vector.length.toFixed(0) );
+			relativePoint = origin + vector; // Calculate position of point representing local radius of cam
+	//console.log("relativePoint=",relativePoint);
+			camPath.add(new Point(relativePoint.x, relativePoint.y)); // Add point to circular profile
+		}
 	}
 	camStaticReference = camPath.clone(); // Reference cam for rotation, constant
 	drawReferenceRays(vector);
 	camPath.bringToFront();
-  camStartPoint.bringToFront();
+	camStartPoint.bringToFront();
 	camStaticReference.visible=false;
 	camPath.visible = true;
+	camPath.bringToFront();
+	camStartPoint.bringToFront();
 }
 
 function drawReferenceRays(vect) {
@@ -789,7 +908,7 @@ function drawReferenceRays(vect) {
 	for (var index = 0 ; index < flatPath.segments.length; index++) {
 		vect.angle = flatPath.segments[index].point.x + ANGLE_OFFSET + GRID_X_OFFSET;
 		relativePoint = origin + vect;
-    if (radii[index]) {
+	if (radii[index]) {
 			radii[index].remove();
 		}
 		radii.push(new Path(origin, relativePoint));
@@ -797,60 +916,61 @@ function drawReferenceRays(vect) {
 		radii[index].strokeColor = "#FF0000";
 
 		vertLine = new Path(new Point(flatPath.segments[index].point.x ,0 + GRID_Y_OFFSET), new Point(flatPath.segments[index].point.x ,CAM_RADIUS + GRID_X_OFFSET));
-    if (verticalLines[index]) {
+	if (verticalLines[index]) {
 			verticalLines[index].remove();
 		}
 		verticalLines.push(vertLine);
 		verticalLines[index].strokeColor = "#FF0000";
-    verticalLines[index].bringToFront();
+	verticalLines[index].bringToFront();
 	}
 }
 
 
 function exportSVG() {
-  	allowRotation = false;
+	allowRotation = false;
 	resetRotation();
+	camPath.setStrokeColor(camPath.getFillColor());
+
 
 	SVGheader = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300">\
 	<g fill="#AAA" stroke="#000000" stroke-width="1">';
 
-	SVGfooter = '  </g>\
+	SVGfooter = '	</g>\
 	</svg>';
 
-	SVGtext = camPath.exportSVG(   { asString: true}   );
+	SVGtext = camPath.exportSVG(	 { asString: true}	 );
 
 	// Before exporting, create a copy of cam and reposition it so as to touch top/left borders:
 	copy = camPath.clone();
 
 	// Define new center for cam
-    X_MARGIN = 10;
-    Y_MARGIN = 10;
+	X_MARGIN = 10;
+	Y_MARGIN = 10;
 	newCenterX = camPath.bounds.width/2 + X_MARGIN;
 	newCenterY = camPath.bounds.height/2 + Y_MARGIN;
+
 	// Move copy to new position
 	copy.position = new Point(newCenterX, newCenterY );
 
-	centerHole = new Path.Circle({
-	            center: new Point(CAM_RADIUS - X_MARGIN, CAM_RADIUS + Y_MARGIN),
-	            radius: '5',
-	            strokeColor: '#000000',
-				strokeWidth : '1',
-				fillColor: null
-	    })
-
+/*	centerHole = new Path.Circle({
+				center: new Point(newCenterX, newCenterY),
+				radius: '5',
+				strokeColor: '#000000',
+						strokeWidth : '1',
+						fillColor: null
+		})
+*/
 	centerDot = new Path.Circle({
-	            center: new Point(CAM_RADIUS - X_MARGIN, CAM_RADIUS + Y_MARGIN),
-	            radius: '1',
-	            strokeColor: '#000000',
+				center: new Point(newCenterX, newCenterY),
+				radius: '1',
+				strokeColor: '#FFFFFF',
 				strokeWidth : '1',
-				fillColor: null
-
-	    })
-
+				fillColor: '#FFFFFF'
+		})
 	// Create SVG export string
-	SVGtext = SVGheader + copy.exportSVG(   { asString: true}   ) +
-	centerHole.exportSVG(   { asString: true}   ) +
-	centerDot.exportSVG(   { asString: true}   ) +
+	SVGtext = SVGheader + copy.exportSVG(	 { asString: true}	 ) +
+	//centerHole.exportSVG(	 { asString: true}	 ) +
+	centerDot.exportSVG(	 { asString: true}	 ) +
 	SVGfooter;
 
 	// Ask user to download the SVG version of the cam:
@@ -863,6 +983,8 @@ function exportSVG() {
 	link.download = fileName;
 	link.href = url;
 	link.click();
+
+	camPath.setStrokeColor("#000000");
 }
 
 
@@ -894,25 +1016,26 @@ function onMouseUp(event) {
 */
 
 
-
+/*
 	drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
 	camCreated = false;
 	assignCamData();
 	createCam();
 	fileContents.value = JSON.stringify(camData,null,4);
 	camPath.bringToFront();
-  	camStartPoint.bringToFront();
-
+	camStartPoint.bringToFront();
 	createPressureAnglePath();
+
+*/
 /////////////
 
 
-
+/*
 	document.getElementById("btnStart").addEventListener("click", startRotation);
 	document.getElementById("btnStop").addEventListener("click", stopRotation);
 	document.getElementById("btnReset").addEventListener("click", resetRotation);
 	document.getElementById("btnShow").addEventListener("click", toggleCamSelection);
-	document.getElementById("btnUpdate").addEventListener("click", update);
+//	document.getElementById("btnUpdate").addEventListener("click", update,"RELOAD");
 	document.getElementById("fileinput").addEventListener("change", loadFile);
 	document.getElementById("SVGfileinput").addEventListener("change", importSVG);
 	document.getElementById("btnExportSVG").addEventListener("click", exportSVG);
@@ -922,15 +1045,23 @@ function onMouseUp(event) {
 	document.getElementById("btnGrid").addEventListener("click", toggleCircularGrid);
 	document.getElementById("rngFollowerOffset").addEventListener("change", moveFollower);
 	document.getElementById("rngFollowerOffset").addEventListener("input", moveFollower);
+	//document.getElementById("rngZoom").addEventListener("input", update,"ZOOM");
 	//document.getElementById("btnPressure").addEventListener("click", createPressureAnglePath);
 
+	document.getElementById("btnUpdate").onclick=function() {
+	  update("RELOAD");
+	};
 
+	document.getElementById("rngZoom").oninput=function() {
+	  update("ZOOM");
+	};
+*/
 </script>
 </head>
 
 <body>
 <center><big><big>Javascript Cam/Follower mechanism generator/simulator</big></big><br>
-v. 0.1.5 - 07/09/2022<br>
+v. 0.2.0 - 26/06/2023<br>
 Made with <a href="http://paperjs.org/tutorials/">paper.js</a> by Jumpjack<br>
 Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 
@@ -944,34 +1075,42 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 		<button id="btnSave" name="btnSave">Save</button><br>
 		<br>
 		Circular profile (SVG format):<br>
-		<input type='file' id='SVGfileinput' name='SVGfileinput'  accept=".svg" style="display:none;">
+		<input type='file' id='SVGfileinput' name='SVGfileinput'	accept=".svg" style="display:none;">
 		<input type="button" id="btnLoadSVG" name="btnLoadSVG" value="Load" onclick="document.getElementById('SVGfileinput').click();" />
 		<button id="btnExportSVG" name="btnExportSVG">Save</button><br>
 		<br>
-        Raster to SVG online converter:<a href="https://image.online-convert.com/convert-to-svg">link</a><br>
+		Raster to SVG online converter:<a href="https://image.online-convert.com/convert-to-svg">link</a><br>
 		<br>
 		<br>
 	Rotation: <button id="btnStart" name="btnStart">Start</button><button id="btnStop" name="btnStop">Stop</button>	<button id="btnReset" name="btnStop">Reset</button><br>
 	<br>
 	Please use one of these services to convert SVG file to STL format for 3d printing:<br>
-    <a href="https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html">https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html</a><br>
-    <a href="http://svg2stl.com/">http://svg2stl.com/</a><br>
+	<a href="https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html">https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html</a><br>
+	<a href="http://svg2stl.com/">http://svg2stl.com/</a><br>
+<br><br>
+	Status: <span id="spnStatus" name="spnStatus">-</span><br>
+	Objects count: <span id="spnCount" name="spnCount">-</span><br>
 	<br>
-	Status: <span id="status" name="status">-</span><br>
-	<br>
-	Pressure angle: <span id="spnPressure" name="spnPressure" style="color:#000000;">0</pan><br>
+
 	</td>
 
 	<td>
 	<canvas id="myCanvas" width=650 height=400 style="background:#EEEEEE;"></canvas><br>
 	<center>
-	Follower offset: <input type="range" id="rngFollowerOffset" name="rngFollowerOffset" value = "0" min= "-100" max = "100"><br>
+	Circular zoom: <input type="range" id="rngZoom" name="rngZoom" value = "0" min= "1" max = "5" step="0.1" ><br>
+	Follower offset: <input type="range" id="rngFollowerOffset" name="rngFollowerOffset" value = "0" min= "-100" max = "100">
+	<button id="btnFollowerReset" name="btnFollowerReset">Reset</button>
+	<button id="btnRecalcPressure" name="btnRecalcPressure">Recalc pressure</button>
+	<br>
 	<button id="btnGrid" name="btnGrid">Grid back/front</button>
 	<button id="btnShow" name="btnShow">Points</button><br>
-	<div class="slidecontainer">
-	  <input type="range" min="0" max="360" value="5" class="slider" id="rngRotation" name="rngRotation">
-	</div>
-	Angle: <span id="lblAngle" name="lblAngle">0</span><br>
+	Rotation angle: <span id="lblAngle" name="lblAngle">0</span><span class="slidecontainer">
+		<input type="range" min="1" max="360" value="5" class="slider" id="rngRotation" name="rngRotation">
+	</span>
+	<br>
+	Pressure angle: <span id="spnPressure" name="spnPressure" style="color:#000000;">0</span>
+	Realtime curve recalc: <input type="checkbox" id="chkPressReal" name="chkPressReal"><br>
+	<br>
 	</center>
 	</td>
 
