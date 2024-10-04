@@ -12,10 +12,6 @@
 
 // Cam/follower mechanism simulator by Jumpjack
 
-// 0.5.0
-// Fixed major bugs of angle-driven profiles, but yet to be finished (angle file to be loaded/saved separately from cam file)
-// Fixed some bugs in profile dragging management
-
 // 0.4.0
 // Added draft manual editing of flat profile, to be fizxed first marker
 
@@ -77,8 +73,6 @@
 
 
 // Init internal variables and constants:
-
-
 profileType="radius"; // radius/angle
 ANGLE_OFFSET 	= -90; // 90: Internally used to have the cam profile starting at top rather than at right
 CAM_RADIUS 		= 200;
@@ -86,8 +80,8 @@ CAM_CENTER_X 	= 600;
 CAM_CENTER_Y	= 230;
 GRID_X_OFFSET = 25;
 GRID_Y_OFFSET = 25;
-PRESSURE_ANGLE_Y_OFFSET = 340;
-ANGLE_Y_OFFSET = 580; // Top coordinate of external follower angle profile
+PRESSURE_ANGLE_Y_OFFSET = 340; 
+ANGLE_Y_OFFSET = 570; // Top coordinate of external follower angle profile
 var BASE_CAM_RADIUS = 10; // debug: to be used somewhere else to check for cam validity
 DECLI_TOLERANCE = 5;
 decliOffset = 24;
@@ -97,7 +91,6 @@ flatPathPointMarker = [];
 flatPathPoint = null;
 flatPath = [];
 selectedSegmentIndex = 0;
-circleHit = false;
 
   decliValues = [
 { "x" : 0, "y" : -23.085911002836564},
@@ -461,7 +454,7 @@ circleHit = false;
 { "x" : 358, "y" : -23.41331062609798},
 { "x" : 359, "y" : -23.38727061938625},
 { "x" : 360, "y" : -23.085911002836564},
-/*
+  /*
     {"x" : 0, "y" : -23.085910996832},
     {"x" : 30, "y" : -18.0427776798567},
     {"x" : 60, "y" : -8.29370504807597},
@@ -473,7 +466,8 @@ circleHit = false;
     {"x" : 240, "y" : 8.1046087060629},
     {"x" : 270, "y" : -3.81782448237535},
     {"x" : 300, "y" : -15.0561830491583},
-    {"x" : 330, "y" : -21.9698675820173}*/
+    {"x" : 330, "y" : -21.9698675820173},
+    {"x" : 360, "y" : -23.085910996832}*/
   ];
 
 	
@@ -506,7 +500,7 @@ FLAT_PROFILE_ORIGIN =	new Point(GRID_X_OFFSET,		 GRID_Y_OFFSET + CAM_RADIUS);
 
 // Oscillating follower prototype:
 var oscillatingCenterX = CAM_CENTER_X - 120;
-var oscillatingCenterY = CAM_CENTER_Y - 80;
+var oscillatingCenterY = CAM_CENTER_Y - 40;
 var oscillatingPivot = {x : oscillatingCenterX, y: oscillatingCenterY}
 angVal = 0;
 
@@ -518,7 +512,6 @@ document.getElementById("btnStop").addEventListener("click", stopRotation);
 document.getElementById("btnReset").addEventListener("click", resetRotation);
 document.getElementById("btnShow").addEventListener("click", toggleCamSelection);
 document.getElementById("fileinput").addEventListener("change", loadFile);
-document.getElementById("fileinputAngle").addEventListener("change", loadFileAngle);
 document.getElementById("SVGfileinput").addEventListener("change", importSVG);
 document.getElementById("btnExportSVG").addEventListener("click", exportSVG);
 document.getElementById("btnSave").addEventListener("click", saveCam);
@@ -527,9 +520,9 @@ document.getElementById("rngRotation").addEventListener("input", rotateBySlider)
 document.getElementById("btnGrid").addEventListener("click", toggleCircularGrid);
 document.getElementById("rngFollowerOffset").addEventListener("change", moveFollower);
 document.getElementById("rngFollowerOffset").addEventListener("input", moveFollower);
-document.getElementById("btnFollowerReset").addEventListener("click", function () {console.log("1");rngFollowerOffset.value = 0; moveFollower() });
+document.getElementById("btnFollowerReset").addEventListener("click", function () { rngFollowerOffset.value = 0; moveFollower() });
 document.getElementById("btnRecalcPressure").addEventListener("click", fullRotation);
-document.getElementById("btnSmooth").addEventListener("click", function () {console.log("2"); flatPath.smooth({ type: 'continuous' }); createCam("smooth");});
+document.getElementById("btnSmooth").addEventListener("click", function () {flatPath.smooth({ type: 'continuous' }); createCam("smooth");});
 
 document.getElementById("btnReload").onclick=function() {
  update("RELOAD");
@@ -544,13 +537,9 @@ document.getElementById("rngOffset").oninput=function() {
 };
 
 
-
 createObjects();
-initVariables(); // cam is created here
-//fullRotation();
-
-
-//// END OF SCRIPT ////
+initVariables();
+fullRotation();
 
 /////////////////////////////////////////////////////
 
@@ -594,6 +583,8 @@ function createObjects() {
 		fillColor : '#FFFF00'
 	});
 	createAnglePath();
+
+
 	camStaticReference = new Path.Circle();
 
 	// Tracker for pressure angle path:
@@ -637,12 +628,9 @@ function createObjects() {
 	camStartPoint = new Point();
 	CSR= camStartPoint.clone();
 	drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
-
-
-
 }
 
-/// update -> init --> createCam
+
 
 function initVariables() {
 	if (camPath) {camPath.parent.project.activeLayer.removeChildren()};
@@ -671,12 +659,21 @@ function initVariables() {
 	intersectorRay.strokeColor = '#000000';
 	camCreated = false;
 
-	assignCamCONSTANTS();
+	assignCamData();
+	
+
+  ///////////// Declinazione:
+/*	for ( ind = 0; ind < 360; ind += 1) {
+		var declDeg = 23.45 * Math.sin((360 * ((284 + ind)/365))*Math.PI/180);
+    tempcam.value += ("{ \"x\" : " +  ind + ", \"y\" : " + declDeg + "},\n");
+	}
+*/
 
 	createCam();
-
-	fileContents.value = JSON.stringify(camData,null,4); // Display cam data in textarea
+ 
+	fileContents.value = JSON.stringify(camData,null,4);
 }
+
 
 
 
@@ -693,12 +690,10 @@ function drawMarkers() {
 	anglePoint.position.x = localAngle + GRID_X_OFFSET + 0;
 	anglePoint.position.y = anglePointInitialY - angVal;
 
-/*
-	flatPathBall.position.x = localAngle	+ GRID_X_OFFSET  + 0;
+/*	flatPathBall.position.x = localAngle	+ GRID_X_OFFSET  + 0;
 	flatPathBall.position.y =  camData.segments[totAngle].point.y + CAM_RADIUS	+ GRID_Y_OFFSET;
 	flatPathBall.bringToFront();
 */
-
 	verticalLine.segments[0].point.x = localAngle + GRID_X_OFFSET;
 	verticalLine.segments[1].point.x = localAngle + GRID_X_OFFSET;
 	verticalLine.bringToFront();
@@ -712,7 +707,7 @@ function createAnglePath() {
 	for (var i=1; i < 360; i++) { // debug 1 o 0?
 		anglePath.add(new Point(360 - i + GRID_X_OFFSET, anglePointInitialY  ));
 	}	
-	drawTicks(GRID_X_OFFSET, ANGLE_Y_OFFSET + 12, anglePointInitialY, 23.7, 'Follower angle');
+	drawTicks(GRID_X_OFFSET, ANGLE_Y_OFFSET, anglePointInitialY, 23.7, 'Follower angle');
 }
 
 function createPressureAnglePath() {
@@ -721,10 +716,10 @@ function createPressureAnglePath() {
 	for (var i=1; i < 360; i++) { // debug 1 o 0?
 		pressureAnglePath.add(new Point(360 - i + GRID_X_OFFSET, pressureAnglePointInitialY  ));
 	}
-	drawTicks(GRID_X_OFFSET, PRESSURE_ANGLE_Y_OFFSET+13, pressureAnglePointInitialY, MAX_PRESSURE, 'Pressure Angle');
+	drawTicks(GRID_X_OFFSET, PRESSURE_ANGLE_Y_OFFSET, pressureAnglePointInitialY, MAX_PRESSURE, 'Pressure Angle');
 }
 	
-function drawTicks(x_off, y_off, initY, maxVal, label) {
+function drawTicks(x_off, y_off, initY, maxVal, label) {	
 // Draw ticks on left axis:
 
  // Tick +90
@@ -832,7 +827,7 @@ function processReceivedTextSVG(e) {
 	var lines = e.target.result;
 	filename.innerHTML = SVGfileinput.value;
 	SVGfileinput.value="";
-	fileContentsSVG.value=lines;
+		fileContentsSVG.value=lines;
 	fileContents.value = "";
 	rawPathStart = lines.indexOf("path");
 	rawPathStart = lines.indexOf("d=", rawPathStart+1) + 3;
@@ -908,44 +903,10 @@ function loadFile() {
 }
 
 
-function loadFileAngle() {
-console.log("Loading ANGLE file...");
-// Load json file containing definition of flat path //
-	var input, file, fr;
-
-	if (typeof window.FileReader !== 'function') {
-	alert("The file API isn't supported on this browser yet.");
-	return;
-	}
-
-	input = document.getElementById('fileinputAngle');
-
-	if (!input) {
-	alert("Um, couldn't find the fileinput element.");
-	}
-	else if (!input.files) {
-	alert("This browser doesn't seem to support the `files` property of file inputs.");
-	}
-	else if (!input.files[0]) {
-	}
-	else {
-	file = input.files[0];
-	try {
-		fr = new FileReader();
-		fr.onload = processReceivedTextAngle;
-		fr.readAsText(file);
-	} catch (e) {
-		alert("Error loading file");
-		console.log("Error loading file, " , e);
-	}
-	}
-}
-
-
 
 
 function processReceivedText(e) {
-console.log("Processing loaded JSON file...");
+console.log("Process...");
 	var lines = e.target.result;
 console.log(e.target.result);
 	try {
@@ -970,7 +931,7 @@ console.log(e.target.result);
 	fileinput.value="";
 	console.log("Recreating cam from JSON...");
 console.log("PRIMA=",camPath.segments.length);
-	assignCamCONSTANTS();
+	assignCamData();
 	createCam();
 	resetRotation();
 console.log("DOPO=",camPath.segments.length);
@@ -981,50 +942,6 @@ console.log("DOPO=",camPath.segments.length);
 	update("ZOOM");
 }
 
-
-
-function processReceivedTextAngle(e) {
-console.log("Processing loaded JSON file... (angle type)");
-	var lines = e.target.result;
-console.log(e.target.result);
-	try {
-		angleData = JSON.parse(lines);
-		fileContentsAngle.value = lines;
-		fileContentsSVG.value = "";
-	} catch (e){
-		alert("Invalid JSON file:" + e);
-		console.log("Invalid JSON file:" + e);
-		return -1;
-	}
-
-	flatPath.remove();
-	camPath.clear();
-	camStaticReference.remove();
-	CSR.remove();
-	camStartPoint.remove();
-	for (var i=0; i< flatPathPointMarker.length; i++) {
-		flatPathPointMarker[i].remove();
-	}
-	camCreated = false;
-	fileinput.value="";
-	console.log("Recreating cam from JSON...");
-console.log("PRIMA=",camPath.segments.length);
-
-	assignCamCONSTANTS();
-
-	/////////////////
-	createCam();
-	/////////////////
-
-	resetRotation();
-
-console.log("DOPO=",camPath.segments.length);
-
-	camPath.bringToFront();
-	camStartPoint.bringToFront();
-	camType = "JSON";
-	update("ZOOM");
-}
 
 
 function saveCam () {
@@ -1075,10 +992,11 @@ console.log("cam data Reloaded: ", camData);
 
 
 
-function assignCamCONSTANTS() {
+function assignCamData() {
 	CAM_ROTATION_SPEED 			= camData.rotSpeed;
 	CAM_STEPS_WIDTH 			= camData.stepsWidth;
 	ROTATION_DIRECTION 			= camData.rotationDir;
+
 
 	camPath.clear();
 	camPath.strokeColor = CAM_LINE_COLOR;
@@ -1101,10 +1019,12 @@ function assignCamCONSTANTS() {
 	follower.strokeColor = FOLLOWER_COLOR;
 	follower.strokeWidth = FOLLOWER_WIDTH;
 	follower.bringToFront();
+	
 
 	normalVector.bringToFront();
 
 	drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
+
 }
 
 
@@ -1123,16 +1043,14 @@ function stopRotation() {
 	allowRotation=false;
 }
 
-
 function fullRotation() {
 	var temp = rngRotation.value * 1.0;
 	for (var i=1; i < 360; i += CAM_ROTATION_SPEED) {
 		rotateCam(ROTATION_DIRECTION * CAM_ROTATION_SPEED, "full");
 	}
 	rotateCam(temp, "full");
+
 }
-
-
 
 function rotateCam(angle, type) {
 
@@ -1163,31 +1081,17 @@ function rotateCam(angle, type) {
 
 	camPath.rotate(totAngle, origin);
 
-
-/// DEBUG NOTE
-// The rotation angle of the follower shall be an input to create the cam profile (camData.segments): given a rotation angle for rotating follower, which is the rdius of the cam?
-////
 	  ///// Rotate the rotating follower
-		rotationAngle = interpolate(totAngle, decliValues) + decliValues[0].y; // Calculate interpolated value, given any rotation angle
+	  rotationAngle = findYForAngle(totAngle, decliValues) + decliValues[0].y;// -  decliOffset ;
 		oscillatingFollower.remove();
 		oscillatingFollower = INITIAL_OSCILLATING_FOLLOWER.clone();
 		oscillatingFollower.strokeColor = OSCILLATING_FOLLOWER_COLOR;
 		oscillatingFollower.strokeWidth = OSCILLATING_FOLLOWER_WIDTH;
-		myVal = 0;
-		for (aaa = 0; aaa< decliValues.length; aaa++) {
-//console.log(decliValues[aaa].x,totAngle);
-			if (decliValues[aaa].x === totAngle) {
-				myVal = decliValues[aaa].y;
-//console.log(decliValues[aaa].x,decliValues[aaa].y);
-			}
-		}
-		oscillatingFollower.rotate(myVal, oscillatingPivot);
-		oscillatingFollower.bringToFront();
-		followerEdge = oscillatingFollower.segments[0].point;
-		//followerEdgeCenterDist = origin.getDistance(followerEdge);
+	  oscillatingFollower.rotate(rotationAngle, oscillatingPivot);
+	  oscillatingFollower.bringToFront();
 	  ///////////////
 
-	angVal = rotationAngle;
+angVal = rotationAngle;
 
 	// Rotate reference lines
 	for (var i=0; i< radii.length; i++) {
@@ -1258,7 +1162,7 @@ function rotateCam(angle, type) {
 }
 
 
-function interpolate(angle, decliValues) {
+function findYForAngle(angle, decliValues) {
   for ( i = 0; i < decliValues.length - 1; i++) {
      x1 = decliValues[i].x;
      y1 = decliValues[i].y;
@@ -1266,9 +1170,9 @@ function interpolate(angle, decliValues) {
      y2 = decliValues[i + 1].y;
 
     if (angle === x1) {
-      return y1; // Restituisce il valore di y1 se angle corrisponde a x1
+      return y1; // Restituisce il valore di y se angle corrisponde a x1
     } else if (angle === x2) {
-      return y2; // Restituisce il valore di y2 se angle corrisponde a x2
+      return y2; // Restituisce il valore di y se angle corrisponde a x2
     } else if (angle > x1 && angle < x2) {
       // Calcola il valore interpolato di y
        interpolatedY = y1 + ((angle - x1) / (x2 - x1)) * (y2 - y1);
@@ -1355,7 +1259,7 @@ function calculatePressureAngle() {
 	follower.segments[1].point.y = followerContactPoint.y;
 	follower.segments[0].point.y = followerContactPoint.y - FOLLOWER_LENGTH;
 
-
+	
 
 	if (!contactExists) return -1;
 
@@ -1526,13 +1430,12 @@ function createCam(param) {
 	});
 	CSR = camStartPoint.clone()
 
-
   if (profileType === "radius") {
   	// Cam first point:
   	camStart = new Point(startPosition.x, startPosition.y); // Define start position of circular cam path
   	camPath.moveTo(camStart); // Set first point of cam path to user-defined start position
-
   	// Draw cam points:
+
   	for (var degr = 0 ; degr <= 360; degr += CIRCULAR_PRECISION) {
   		intersector.position.x = degr + GRID_X_OFFSET; // "Move" intersector along flat profile
   		intersection = flatPath.getIntersections(intersector); // Calculate intersection to determine cam local radius
@@ -1543,54 +1446,41 @@ function createCam(param) {
   			camPath.add(new Point(relativePoint.x, relativePoint.y)); // Add point to circular profile
   		}
   	}
-
   }
 
+  if (profileType === "angle") {
+  	for (var totAngle = 0 ; totAngle <= 360; totAngle += CIRCULAR_PRECISION) {
 
-  if (profileType === "angle") { // DEBUG: ********** flat profile is overridden by hardcoded decliValues[] array  (sun declination test) *********
-console.log("S=",camData.segments);
-  	camData.segments= [];
-//decliValues = camData.segments;
-	for (i = 0; i < decliValues.length; i++ ) {
-	    ///// Rotate the rotating follower
-	    rotationAngle = decliValues[i].y;
-	  	oscillatingFollower.remove();
-	  	oscillatingFollower = INITIAL_OSCILLATING_FOLLOWER.clone();
-	  	oscillatingFollower.strokeColor = OSCILLATING_FOLLOWER_COLOR;
-	  	oscillatingFollower.strokeWidth = OSCILLATING_FOLLOWER_WIDTH;
-	    oscillatingFollower.rotate(rotationAngle, oscillatingPivot);
-	    oscillatingFollower.bringToFront();
+    ///// Rotate the rotating follower
+    rotationAngle = findYForAngle(totAngle, decliValues) + decliValues[0].y;// -  decliOffset ;
+  	oscillatingFollower.remove();
+  	oscillatingFollower = INITIAL_OSCILLATING_FOLLOWER.clone();
+  	oscillatingFollower.strokeColor = OSCILLATING_FOLLOWER_COLOR;
+  	oscillatingFollower.strokeWidth = OSCILLATING_FOLLOWER_WIDTH;
+    oscillatingFollower.rotate(rotationAngle, oscillatingPivot);
+    oscillatingFollower.bringToFront();
 
-	    /////// Find cam radius:
-	    oscillatingRadius = oscillatingFollower.segments[0].point.getDistance(origin);
-	    oscillatingPointBase = oscillatingFollower.segments[0].point.clone();
-	    oscillatingPointRotated = oscillatingPointBase.rotate(-i*(360/decliValues.length)	, origin);
-	    if (camPath.segments.length === 0) {
-		  camData.segments[0] = {x: oscillatingPointRotated.x, y: oscillatingPointRotated.y};
-	      camPath.moveTo(camData.segments[0]);
-	    } else {
-		  camData.segments.push({x : oscillatingPointRotated.x, y : oscillatingPointRotated.y});
-//console.log("AAA=",camData.segments.length,i,camData.segments[i]);
-//return
-	      camPath.add(new Point(camData.segments[i].x, camData.segments[i].y));
-	    }
-  	} // 	for (i = 0; i < decliValues.length; i++ ) {
-
-	//camData.segments = camPath.segments;
-	for (i=0; i< camPath._segments.length; i++) {
-		//	console.log("S2=",camPath._segments[i].point.x,camPath._segments[i].point.y);
-	}
-
-	fileContents.value = JSON.stringify(camData,null,4);
-  } // if (profileType === "angle")
+    /////// Find cam radius:
+    oscillatingRadius = oscillatingFollower.segments[0].point.getDistance(origin);
+    oscillatingPointBase = oscillatingFollower.segments[0].point.clone();
+    oscillatingPointRotated = oscillatingPointBase.rotate(-totAngle, origin);
+    if (camPath.segments.length === 0) {
+      camPath.moveTo(oscillatingPointRotated);
+    } else {
+      camPath.add(oscillatingPointRotated);
+    }
+  }
+}
 
 /////////////////
+
+
 	camStaticReference = camPath.clone(); // Reference cam for rotation, constant
 	vector.x = 0;
 	vector.y = 0;
 	vector.angle = -70;
 	drawReferenceRays(vector);
-} // createCam end
+}
 
 
 
@@ -1677,7 +1567,6 @@ function exportSVG() {
             circle = flatPathPointMarker[i];
             if (circle.hitTest(event.point)) {
 console.log("HIT:", i,  flatPath.segments[i].point.x - GRID_X_OFFSET, CAM_CENTER_Y - 6 - flatPath.segments[i].point.y)
-				circleHit = true;
                 selectedCircle = circle;
                 selectedSegmentIndex = i;
                 break;
@@ -1685,32 +1574,15 @@ console.log("HIT:", i,  flatPath.segments[i].point.x - GRID_X_OFFSET, CAM_CENTER
         }
     };
 
-function onMouseUp (event) {
-			circleHit = false; // To prevent keeping draggin a point after leaving it and not hitting another one
-}
-
-
 function onMouseDrag (event) {
-		if (circleHit) {
-	        if (selectedCircle) {
-
-	            //selectedSegmentIndex = selectedCircle.data.index;
-				newPoint = event.point.clone();
-				if (newPoint.x  - GRID_X_OFFSET > 360)  newPoint.x = 360 + GRID_X_OFFSET;
-				if (newPoint.x  - GRID_X_OFFSET < 0) newPoint.x = GRID_X_OFFSET;
-	            selectedCircle.position = newPoint;
-	console.log("   Dragging  ",
-								selectedCircle.position._x - GRID_X_OFFSET,
-								CAM_CENTER_Y - 6 - selectedCircle.position._y);
-
-	            updateJsonData();  // Aggiorna il JSON in tempo reale
-				update("RELOAD");
-	        }
-		}
+        if (selectedCircle) {
+            //selectedSegmentIndex = selectedCircle.data.index;
+            selectedCircle.position = event.point;
+console.log("   Dragging  ",selectedSegmentIndex,selectedCircle.position._x - GRID_X_OFFSET, GRID_X_OFFSET, CAM_CENTER_Y - 6 - selectedCircle.position._y);
+            updateJsonData();  // Aggiorna il JSON in tempo reale
+			update("RELOAD");
+        }
     };
-
-
-
 
     function updateJsonData() {
         data = JSON.parse(document.getElementById("fileContents").value);
@@ -1718,7 +1590,7 @@ console.log("    path, data, sel:",flatPath.segments.length,data.segments.length
         for (i = 0; i < flatPath.segments.length; i++) {
 			if (i === selectedSegmentIndex) {
 				data.segments[i].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
-	            data.segments[i].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
+	            data.segments[i].y = parseInt((GRID_X_OFFSET, CAM_CENTER_Y - 6 - selectedCircle.position._y).toFixed(0));
 console.log("    Update ",i,data.segments[i].x,data.segments[i].y);
 			}
         }
@@ -1730,7 +1602,7 @@ console.log("    Update ",i,data.segments[i].x,data.segments[i].y);
 
 <body>
 <center><big><big>Javascript Cam/Follower mechanism generator/simulator</big></big><br>
-v. 0.5.0 - 04/oct/2024<br>
+v. 0.3.0 - 26/10/2023<br>
 Made with <a href="http://paperjs.org/tutorials/">paper.js</a> by Jumpjack<br>
 Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 
@@ -1741,16 +1613,8 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 		Flat profile (JSON format):<br>
 		<input type='file' id='fileinput' name='fileinput' accept=".json" style="display:none;">
 		<input type="button" id="btnLoadJSON" name="btnLoadJSON" value="Load" onclick="document.getElementById('fileinput').click();" />
-		<button id="btnSave" name="btnSave" >Save</button><br>
+		<button id="btnSave" name="btnSave">Save</button><br>
 		<br>
-
-<!--
-		Angle profile (JSON format):<br>
-		<input type='file' id='fileinputAngle' name='fileinputAngle' accept=".json" style="display:none;">
-		<input type="button" id="btnLoadJSONAngle" name="btnLoadJSONAngle" value="Load" onclick="document.getElementById('fileinputAngle').click();" />
-		<button id="btnSaveAngle" name="btnSaveAngle" onclick="alert('Not implemented, you must manyally copy datainto a .json file')">Save</button><br>
-		<br>
--->
 		Circular profile (SVG format):<br>
 		<input type='file' id='SVGfileinput' name='SVGfileinput'	accept=".svg" style="display:none;">
 		<input type="button" id="btnLoadSVG" name="btnLoadSVG" value="Load" onclick="document.getElementById('SVGfileinput').click();" />
@@ -1803,18 +1667,12 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 		<br>
 		<textarea id="fileContents" name="fileContents" cols=50 rows=30>
 		</textarea><br>
-<br>
 
-<!--
-		Angular data:<br>
-		<textarea id="fileContentsAngle" name="fileContentsAngle" cols=80 rows=30>
-		</textarea><br>
-<br>
--->
 		SVG imported data:<br>
 		<textarea id="fileContentsSVG" name="fileContentsSVG" cols=50 rows=30>
 		</textarea><br>
-
+		<textarea id="tempcam" name="tempcam" cols=50 rows=30>
+		</textarea><br>
 	</td>
 	<td style="vertical-align:top;">
 	</td>
