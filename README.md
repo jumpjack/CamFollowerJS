@@ -22,14 +22,14 @@ The page loads the flat cartesian profile of the cam, and turns it into a circul
 
 Things I would like to add in the future:
 
-- cams library in json format
-- visual cams library
-- visual editing of cam profile using mouse
-- flat/circuar roller follower support  ![image](https://user-images.githubusercontent.com/1620953/189072510-8ed40258-0e9e-47c7-a367-2c43578d53d2.png)
-- parametric editing
-- STL direct export
-- combined motions simulator
-- ....
+1. cams library in json format **-- waiting for users input... -**
+2. visual cams library
+3. visual editing of cam profile using mouse -- **DONE**
+4. flat/circuar roller follower support  ![image](https://user-images.githubusercontent.com/1620953/189072510-8ed40258-0e9e-47c7-a367-2c43578d53d2.png)
+5. parametric editing
+6. STL direct export
+7. combined motions simulator
+8. rotating follower  ![image](https://github.com/user-attachments/assets/9865580f-cf5a-4b1b-987c-5fa1b5ca24a7)  **--ONGOING--**
 
 ---------
 
