@@ -518,7 +518,7 @@ document.getElementById("btnStop").addEventListener("click", stopRotation);
 document.getElementById("btnReset").addEventListener("click", resetRotation);
 document.getElementById("btnShow").addEventListener("click", toggleCamSelection);
 document.getElementById("fileinput").addEventListener("change", loadFile);
-document.getElementById("fileinputAngle").addEventListener("change", loadFileAngle);
+//document.getElementById("fileinputAngle").addEventListener("change", loadFileAngle);
 document.getElementById("SVGfileinput").addEventListener("change", importSVG);
 document.getElementById("btnExportSVG").addEventListener("click", exportSVG);
 document.getElementById("btnSave").addEventListener("click", saveCam);
@@ -1275,7 +1275,7 @@ function interpolate(angle, decliValues) {
       return interpolatedY;
     }
   }
-  return null; // Restituisce null se angle non è nel range disponibile
+  return null; // Restituisce null se angle non Ã¨ nel range disponibile
 }
 
 
