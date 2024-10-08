@@ -24,10 +24,6 @@ function switchMode() {
 
 // Cam/follower mechanism simulator by Jumpjack
 
-// 0.6.1
-// Added limits on y movement of flatpath markers
-
-
 // 0.6.0
 // Added limits on x movement of flatpath markers
 
@@ -122,7 +118,6 @@ camPath = null;
 lastCircle = null;
 prevCircle = null;
 nextCircle = null;
-selectedCircle = null;
 
   decliValues = [
     {"x" : 0, "y" : -23.085910996832},
@@ -165,7 +160,7 @@ ZERO_ZERO =	 new Point(GRID_X_OFFSET,				GRID_Y_OFFSET);
 UPPER_POINT = new Point(GRID_X_OFFSET,				GRID_Y_OFFSET + CAM_RADIUS);
 BOTTOM =	new Point(GRID_X_OFFSET + CAM_CENTER_X, GRID_Y_OFFSET + CAM_CENTER_Y + 200);
 FLAT_PROFILE_ORIGIN =	new Point(GRID_X_OFFSET,		 GRID_Y_OFFSET + CAM_RADIUS);
- 
+
 
 // Oscillating follower prototype:
 var oscillatingCenterX = CAM_CENTER_X - 120;
@@ -1274,8 +1269,7 @@ console.log("Input segments for ANGLE=",camData.segments);
 		//	console.log("S2=",camPath._segments[i].point.x,camPath._segments[i].point.y);
 	}
 
-updateJsonData();
-	//fileContents.value = JSON.stringify(camData,null,4);
+	fileContents.value = JSON.stringify(camData,null,4);
   } // if (profileType === "angle")
 
 /////////////////
@@ -1394,33 +1388,37 @@ function onMouseUp (event) {
 
 
 function onMouseDrag (event) {
-		if (circleHit) {		
-	        if (selectedCircle) {		
+locked = false;
+		if (circleHit) {
+console.log("   hit");		
+	        if (selectedCircle) {
+console.log("      selected:",selectedSegmentIndex);		
 				newPoint = event.point.clone();
 
-				if ((selectedSegmentIndex > 0) && (selectedSegmentIndex < camData.segments.length-1) ) {					
-					if ((newPoint.x > prevCircle.position.x)  && (newPoint.x < nextCircle.position.x)){	
+				if ((selectedSegmentIndex > 0) && (selectedSegmentIndex < camData.segments.length-1) ) {
+console.log("         NON ESTREMO",newPoint.x , prevCircle.position.x);					
+					if ((newPoint.x > prevCircle.position.x)  && (newPoint.x < nextCircle.position.x)){
+console.log("             MUOVO");	
 						selectedCircle.position.x = parseInt((newPoint.x ).toFixed(0));
 					} else {				
-					 // can't cross previous point on the left					
+					 // can't cross previous point on the left
+console.log("********** LOCKED");					
 					}
 				}
-								
-				if (newPoint.y  - GRID_Y_OFFSET > 200)  newPoint.y = 200 + GRID_Y_OFFSET;
-				if (newPoint.y  - GRID_Y_OFFSET < 0) newPoint.y = GRID_Y_OFFSET;
 				
-				if ((selectedSegmentIndex == 0) || (selectedSegmentIndex == camData.segments.length-1)) { // Sync first and last point horizontally
+
+				
+				if ((selectedSegmentIndex == 0) || (selectedSegmentIndex == camData.segments.length-1)) { // lock first and last point horizontally
 					selectedCircle.position.y = newPoint.y;
 					lastCircle.position.y = newPoint.y;
 				} else {
-				//  edges not selected
+					if (newPoint.x  - GRID_X_OFFSET > 360)  newPoint.x = 360 + GRID_X_OFFSET;
+					if (newPoint.x  - GRID_X_OFFSET < 0) newPoint.x = GRID_X_OFFSET;
+		            selectedCircle.position.y = newPoint.y;
 				}
-				
-		        selectedCircle.position.y = newPoint.y;
-				
 	console.log("   Dragging  ",
-								selectedCircle.position._x,
-								selectedCircle.position._y,
+								selectedCircle.position._x - GRID_X_OFFSET,
+								CAM_CENTER_Y - 6 - selectedCircle.position._y,
 								lastCircle.position.y);
 
 	            updateJsonData();  // Aggiorna il JSON in tempo reale
@@ -1434,28 +1432,26 @@ function onMouseDrag (event) {
 
     function updateJsonData() {
         data = JSON.parse(document.getElementById("fileContents").value);
+		newX = selectedCircle.position._x - GRID_X_OFFSET;
+		newY = CAM_CENTER_Y - 6 - selectedCircle.position._y;
 //console.log("    path, data, sel:",flatPath.segments.length,data.segments.length,selectedSegmentIndex);
         for (i = 0; i < flatPath.segments.length; i++) {
-console.log(1);		
-			if (selectedCircle) {
-console.log(2);		
-				if (i === selectedSegmentIndex) {
-					data.segments[i].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
-		            data.segments[i].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
-	console.log("    Update ",i,data.segments[i].x,data.segments[i].y);
-				}
+			if (i === selectedSegmentIndex) {
+				data.segments[i].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
+	            data.segments[i].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
+console.log("    Update ",i,data.segments[i].x,data.segments[i].y);
+			}
 
-				if (selectedSegmentIndex === 0) { // sync first and last
-					//data.segments[camData.segments.length-1].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
-		            data.segments[camData.segments.length-1].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
-	console.log("    Update LAST:",data.segments[i].x,data.segments[i].y);
-				}
+			if (selectedSegmentIndex === 0) { // sync first and last
+				//data.segments[camData.segments.length-1].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
+	            data.segments[camData.segments.length-1].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
+console.log("    Update LAST:",data.segments[i].x,data.segments[i].y);
+			}
 
-				if (selectedSegmentIndex === camData.segments.length-1) { // sync first and last
-					//data.segments[0].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
-		            data.segments[0].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
-	console.log("    Update FIRST: ",data.segments[0].x,data.segments[0].y);
-				}
+			if (selectedSegmentIndex === camData.segments.length-1) { // sync first and last
+				//data.segments[0].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
+	            data.segments[0].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
+console.log("    Update FIRST: ",data.segments[0].x,data.segments[0].y);
 			}
         }
         document.getElementById("fileContents").value = JSON.stringify(data, null, 4);
@@ -1468,7 +1464,7 @@ console.log(2);
 
 <body>
 <center><big><big>Javascript Cam/Follower mechanism generator/simulator</big></big><br>
-v. 0.6.1 - 08/oct/2024<br>
+v. 0.6.0 - 08/oct/2024<br>
 Made with <a href="http://paperjs.org/tutorials/">paper.js</a> by Jumpjack<br>
 Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 

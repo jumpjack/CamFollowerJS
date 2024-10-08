@@ -10,26 +10,7 @@
 <!-- Define inlined PaperScript associate it with myCanvas -->
 <script type="text/paperscript" canvas="myCanvas">
 
-function switchMode() {
-	///debug
-	if (profileType==="radius") {
-		profileType="angle"
-	} else {
-		profileType="radius"
-	}
-	console.log(profileType);
-	initVariables();
-}
-
-
 // Cam/follower mechanism simulator by Jumpjack
-
-// 0.6.1
-// Added limits on y movement of flatpath markers
-
-
-// 0.6.0
-// Added limits on x movement of flatpath markers
 
 // 0.5.0
 // Fixed major bugs of angle-driven profiles, but yet to be finished (angle file to be loaded/saved separately from cam file)
@@ -117,14 +98,370 @@ flatPathPoint = null;
 flatPath = [];
 selectedSegmentIndex = 0;
 circleHit = false;
-prevA = 0;
-camPath = null;
-lastCircle = null;
-prevCircle = null;
-nextCircle = null;
-selectedCircle = null;
 
   decliValues = [
+{ "x" : 0, "y" : -23.085911002836564},
+{ "x" : 1, "y" : -23.011636727869234},
+{ "x" : 2, "y" : -22.93054360830765},
+{ "x" : 3, "y" : -22.842655673793264},
+{ "x" : 4, "y" : -22.74799896741784},
+{ "x" : 5, "y" : -22.646601538006347},
+{ "x" : 6, "y" : -22.538493431805453},
+{ "x" : 7, "y" : -22.423706683580196},
+{ "x" : 8, "y" : -22.302275307121352},
+{ "x" : 9, "y" : -22.174235285166485},
+{ "x" : 10, "y" : -22.03962455873745},
+{ "x" : 11, "y" : -21.898483015897597},
+{ "x" : 12, "y" : -21.750852479932167},
+{ "x" : 13, "y" : -21.596776696955082},
+{ "x" : 14, "y" : -21.436301322946086},
+{ "x" : 15, "y" : -21.269473910221826},
+{ "x" : 16, "y" : -21.096343893345107},
+{ "x" : 17, "y" : -20.91696257447641},
+{ "x" : 18, "y" : -20.73138310817188},
+{ "x" : 19, "y" : -20.539660485632496},
+{ "x" : 20, "y" : -20.34185151840905},
+{ "x" : 21, "y" : -20.13801482156758},
+{ "x" : 22, "y" : -19.928210796320535},
+{ "x" : 23, "y" : -19.712501612128527},
+{ "x" : 24, "y" : -19.490951188278192},
+{ "x" : 25, "y" : -19.26362517494162},
+{ "x" : 26, "y" : -19.030590933722618},
+{ "x" : 27, "y" : -18.791917517696163},
+{ "x" : 28, "y" : -18.54767565094643},
+{ "x" : 29, "y" : -18.297937707609684},
+{ "x" : 30, "y" : -18.04277769042835},
+{ "x" : 31, "y" : -17.782271208822305},
+{ "x" : 32, "y" : -17.516495456484215},
+{ "x" : 33, "y" : -17.24552918850547},
+{ "x" : 34, "y" : -16.96945269803914},
+{ "x" : 35, "y" : -16.688347792507624},
+{ "x" : 36, "y" : -16.402297769361123},
+{ "x" : 37, "y" : -16.111387391394988},
+{ "x" : 38, "y" : -15.815702861632575},
+{ "x" : 39, "y" : -15.515331797781442},
+{ "x" : 40, "y" : -15.210363206270323},
+{ "x" : 41, "y" : -14.90088745587468},
+{ "x" : 42, "y" : -14.586996250938338},
+{ "x" : 43, "y" : -14.268782604199714},
+{ "x" : 44, "y" : -13.946340809229898},
+{ "x" : 45, "y" : -13.61976641249164},
+{ "x" : 46, "y" : -13.289156185026727},
+{ "x" : 47, "y" : -12.954608093780678},
+{ "x" : 48, "y" : -12.616221272573133},
+{ "x" : 49, "y" : -12.274095992722172},
+{ "x" : 50, "y" : -11.928333633331844},
+{ "x" : 51, "y" : -11.579036651251469},
+{ "x" : 52, "y" : -11.226308550715235},
+{ "x" : 53, "y" : -10.87025385267186},
+{ "x" : 54, "y" : -10.51097806381263},
+{ "x" : 55, "y" : -10.148587645307623},
+{ "x" : 56, "y" : -9.783189981258852},
+{ "x" : 57, "y" : -9.414893346880083},
+{ "x" : 58, "y" : -9.043806876412575},
+{ "x" : 59, "y" : -8.670040530786286},
+{ "x" : 60, "y" : -8.293705065035907},
+{ "x" : 61, "y" : -7.914911995481961},
+{ "x" : 62, "y" : -7.533773566685943},
+{ "x" : 63, "y" : -7.150402718189986},
+{ "x" : 64, "y" : -6.7649130510503},
+{ "x" : 65, "y" : -6.377418794174787},
+{ "x" : 66, "y" : -5.988034770474611},
+{ "x" : 67, "y" : -5.596876362839526},
+{ "x" : 68, "y" : -5.204059479947669},
+{ "x" : 69, "y" : -4.809700521919142},
+{ "x" : 70, "y" : -4.413916345824069},
+{ "x" : 71, "y" : -4.016824231055654},
+{ "x" : 72, "y" : -3.6185418445773894},
+{ "x" : 73, "y" : -3.219187206056068},
+{ "x" : 74, "y" : -2.8188786528898424},
+{ "x" : 75, "y" : -2.41773480514234},
+{ "x" : 76, "y" : -2.015874530393125},
+{ "x" : 77, "y" : -1.613416908514419},
+{ "x" : 78, "y" : -1.2104811963853104},
+{ "x" : 79, "y" : -0.8071867925533891},
+{ "x" : 80, "y" : -0.4036532018543165},
+{ "x" : 81, "y" : -5.7435934880010865e-15},
+{ "x" : 82, "y" : 0.40365320185434667},
+{ "x" : 83, "y" : 0.8071867925533985},
+{ "x" : 84, "y" : 1.2104811963852988},
+{ "x" : 85, "y" : 1.6134169085143868},
+{ "x" : 86, "y" : 2.0158745303931136},
+{ "x" : 87, "y" : 2.4177348051423495},
+{ "x" : 88, "y" : 2.8188786528898313},
+{ "x" : 89, "y" : 3.219187206056036},
+{ "x" : 90, "y" : 3.6185418445773783},
+{ "x" : 91, "y" : 4.016824231055664},
+{ "x" : 92, "y" : 4.413916345824079},
+{ "x" : 93, "y" : 4.80970052191911},
+{ "x" : 94, "y" : 5.2040594799476585},
+{ "x" : 95, "y" : 5.596876362839536},
+{ "x" : 96, "y" : 5.988034770474579},
+{ "x" : 97, "y" : 6.377418794174777},
+{ "x" : 98, "y" : 6.76491305105027},
+{ "x" : 99, "y" : 7.150402718189955},
+{ "x" : 100, "y" : 7.533773566685912},
+{ "x" : 101, "y" : 7.9149119954819485},
+{ "x" : 102, "y" : 8.293705065035914},
+{ "x" : 103, "y" : 8.670040530786293},
+{ "x" : 104, "y" : 9.043806876412603},
+{ "x" : 105, "y" : 9.414893346880072},
+{ "x" : 106, "y" : 9.783189981258822},
+{ "x" : 107, "y" : 10.148587645307593},
+{ "x" : 108, "y" : 10.510978063812637},
+{ "x" : 109, "y" : 10.870253852671814},
+{ "x" : 110, "y" : 11.226308550715224},
+{ "x" : 111, "y" : 11.57903665125146},
+{ "x" : 112, "y" : 11.928333633331851},
+{ "x" : 113, "y" : 12.274095992722161},
+{ "x" : 114, "y" : 12.616221272573123},
+{ "x" : 115, "y" : 12.954608093780667},
+{ "x" : 116, "y" : 13.289156185026684},
+{ "x" : 117, "y" : 13.61976641249163},
+{ "x" : 118, "y" : 13.94634080922989},
+{ "x" : 119, "y" : 14.268782604199703},
+{ "x" : 120, "y" : 14.586996250938345},
+{ "x" : 121, "y" : 14.90088745587467},
+{ "x" : 122, "y" : 15.210363206270316},
+{ "x" : 123, "y" : 15.515331797781418},
+{ "x" : 124, "y" : 15.815702861632584},
+{ "x" : 125, "y" : 16.111387391394963},
+{ "x" : 126, "y" : 16.402297769361116},
+{ "x" : 127, "y" : 16.688347792507603},
+{ "x" : 128, "y" : 16.96945269803915},
+{ "x" : 129, "y" : 17.245529188505458},
+{ "x" : 130, "y" : 17.516495456484208},
+{ "x" : 131, "y" : 17.782271208822284},
+{ "x" : 132, "y" : 18.042777690428327},
+{ "x" : 133, "y" : 18.29793770760969},
+{ "x" : 134, "y" : 18.547675650946424},
+{ "x" : 135, "y" : 18.791917517696167},
+{ "x" : 136, "y" : 19.03059093372262},
+{ "x" : 137, "y" : 19.263625174941613},
+{ "x" : 138, "y" : 19.49095118827819},
+{ "x" : 139, "y" : 19.71250161212851},
+{ "x" : 140, "y" : 19.928210796320506},
+{ "x" : 141, "y" : 20.138014821567584},
+{ "x" : 142, "y" : 20.341851518409054},
+{ "x" : 143, "y" : 20.53966048563249},
+{ "x" : 144, "y" : 20.731383108171872},
+{ "x" : 145, "y" : 20.91696257447641},
+{ "x" : 146, "y" : 21.0963438933451},
+{ "x" : 147, "y" : 21.2694739102218},
+{ "x" : 148, "y" : 21.436301322946072},
+{ "x" : 149, "y" : 21.59677669695507},
+{ "x" : 150, "y" : 21.75085247993216},
+{ "x" : 151, "y" : 21.898483015897597},
+{ "x" : 152, "y" : 22.039624558737447},
+{ "x" : 153, "y" : 22.174235285166496},
+{ "x" : 154, "y" : 22.30227530712135},
+{ "x" : 155, "y" : 22.423706683580185},
+{ "x" : 156, "y" : 22.53849343180545},
+{ "x" : 157, "y" : 22.64660153800635},
+{ "x" : 158, "y" : 22.747998967417832},
+{ "x" : 159, "y" : 22.84265567379326},
+{ "x" : 160, "y" : 22.93054360830765},
+{ "x" : 161, "y" : 23.011636727869234},
+{ "x" : 162, "y" : 23.08591100283656},
+{ "x" : 163, "y" : 23.153344424138975},
+{ "x" : 164, "y" : 23.21391700979843},
+{ "x" : 165, "y" : 23.26761081085051},
+{ "x" : 166, "y" : 23.314409916663173},
+{ "x" : 167, "y" : 23.35430045965135},
+{ "x" : 168, "y" : 23.387270619386246},
+{ "x" : 169, "y" : 23.41331062609798},
+{ "x" : 170, "y" : 23.43241276357058},
+{ "x" : 171, "y" : 23.44457137142844},
+{ "x" : 172, "y" : 23.449782846813658},
+{ "x" : 173, "y" : 23.448045645453604},
+{ "x" : 174, "y" : 23.43936028211853},
+{ "x" : 175, "y" : 23.423729330469037},
+{ "x" : 176, "y" : 23.401157422293444},
+{ "x" : 177, "y" : 23.37165124613529},
+{ "x" : 178, "y" : 23.33521954531136},
+{ "x" : 179, "y" : 23.291873115320865},
+{ "x" : 180, "y" : 23.241624800646505},
+{ "x" : 181, "y" : 23.184489490948383},
+{ "x" : 182, "y" : 23.12048411665182},
+{ "x" : 183, "y" : 23.049627643930588},
+{ "x" : 184, "y" : 22.971941069086743},
+{ "x" : 185, "y" : 22.887447412329042},
+{ "x" : 186, "y" : 22.796171710951487},
+{ "x" : 187, "y" : 22.698141011914306},
+{ "x" : 188, "y" : 22.59338436382928},
+{ "x" : 189, "y" : 22.4819328083521},
+{ "x" : 190, "y" : 22.363819370983947},
+{ "x" : 191, "y" : 22.239079051285426},
+{ "x" : 192, "y" : 22.107748812505374},
+{ "x" : 193, "y" : 21.969867570627866},
+{ "x" : 194, "y" : 21.82547618284062},
+{ "x" : 195, "y" : 21.67461743542803},
+{ "x" : 196, "y" : 21.517336031092796},
+{ "x" : 197, "y" : 21.353678575709374},
+{ "x" : 198, "y" : 21.18369356451386},
+{ "x" : 199, "y" : 21.007431367733627},
+{ "x" : 200, "y" : 20.824944215661617},
+{ "x" : 201, "y" : 20.636286183179415},
+{ "x" : 202, "y" : 20.44151317373359},
+{ "x" : 203, "y" : 20.24068290277042},
+{ "x" : 204, "y" : 20.033854880633424},
+{ "x" : 205, "y" : 19.821090394929318},
+{ "x" : 206, "y" : 19.60245249236703},
+{ "x" : 207, "y" : 19.378005960075683},
+{ "x" : 208, "y" : 19.147817306406743},
+{ "x" : 209, "y" : 18.91195474122617},
+{ "x" : 210, "y" : 18.670488155702337},
+{ "x" : 211, "y" : 18.423489101595834},
+{ "x" : 212, "y" : 18.17103077005712},
+{ "x" : 213, "y" : 17.913187969938225},
+{ "x" : 214, "y" : 17.65003710562563},
+{ "x" : 215, "y" : 17.381656154399586},
+{ "x" : 216, "y" : 17.108124643328157},
+{ "x" : 217, "y" : 16.829523625701313},
+{ "x" : 218, "y" : 16.545935657013334},
+{ "x" : 219, "y" : 16.257444770499617},
+{ "x" : 220, "y" : 15.964136452236033},
+{ "x" : 221, "y" : 15.66609761580737},
+{ "x" : 222, "y" : 15.363416576553035},
+{ "x" : 223, "y" : 15.056183025397416},
+{ "x" : 224, "y" : 14.744488002272329},
+{ "x" : 225, "y" : 14.428423869140053},
+{ "x" : 226, "y" : 14.108084282624429},
+{ "x" : 227, "y" : 13.7835641662585},
+{ "x" : 228, "y" : 13.454959682356431},
+{ "x" : 229, "y" : 13.122368203518635},
+{ "x" : 230, "y" : 12.785888283778304},
+{ "x" : 231, "y" : 12.445619629397315},
+{ "x" : 232, "y" : 12.101663069321772},
+{ "x" : 233, "y" : 11.754120525303437},
+{ "x" : 234, "y" : 11.403094981698795},
+{ "x" : 235, "y" : 11.048690454952093},
+{ "x" : 236, "y" : 10.691011962773354},
+{ "x" : 237, "y" : 10.330165493019075},
+{ "x" : 238, "y" : 9.966257972286098},
+{ "x" : 239, "y" : 9.599397234226316},
+{ "x" : 240, "y" : 9.22969198759411},
+{ "x" : 241, "y" : 8.857251784032991},
+{ "x" : 242, "y" : 8.482186985613037},
+{ "x" : 243, "y" : 8.104608732128696},
+{ "x" : 244, "y" : 7.724628908165244},
+{ "x" : 245, "y" : 7.342360109945156},
+{ "x" : 246, "y" : 6.957915611963344},
+{ "x" : 247, "y" : 6.571409333421627},
+{ "x" : 248, "y" : 6.182955804471791},
+{ "x" : 249, "y" : 5.792670132277933},
+{ "x" : 250, "y" : 5.4006679669078625},
+{ "x" : 251, "y" : 5.007065467063235},
+{ "x" : 252, "y" : 4.611979265659394},
+{ "x" : 253, "y" : 4.215526435264392},
+{ "x" : 254, "y" : 3.8178244534082735},
+{ "x" : 255, "y" : 3.418991167771046},
+{ "x" : 256, "y" : 3.019144761263017},
+{ "x" : 257, "y" : 2.618403717003746},
+{ "x" : 258, "y" : 2.216886783213346},
+{ "x" : 259, "y" : 1.814712938024703},
+{ "x" : 260, "y" : 1.412001354227852},
+{ "x" : 261, "y" : 1.0088713639562585},
+{ "x" : 262, "y" : 0.6054424233262556},
+{ "x" : 263, "y" : 0.20183407703974532},
+{ "x" : 264, "y" : -0.20183407703972808},
+{ "x" : 265, "y" : -0.6054424233262384},
+{ "x" : 266, "y" : -1.0088713639562412},
+{ "x" : 267, "y" : -1.412001354227835},
+{ "x" : 268, "y" : -1.8147129380246856},
+{ "x" : 269, "y" : -2.21688678321337},
+{ "x" : 270, "y" : -2.61840371700377},
+{ "x" : 271, "y" : -3.019144761263041},
+{ "x" : 272, "y" : -3.41899116777107},
+{ "x" : 273, "y" : -3.8178244534082153},
+{ "x" : 274, "y" : -4.215526435264416},
+{ "x" : 275, "y" : -4.611979265659336},
+{ "x" : 276, "y" : -5.007065467063218},
+{ "x" : 277, "y" : -5.400667966907845},
+{ "x" : 278, "y" : -5.792670132277916},
+{ "x" : 279, "y" : -6.182955804471774},
+{ "x" : 280, "y" : -6.571409333421611},
+{ "x" : 281, "y" : -6.957915611963327},
+{ "x" : 282, "y" : -7.342360109945139},
+{ "x" : 283, "y" : -7.7246289081652275},
+{ "x" : 284, "y" : -8.10460873212868},
+{ "x" : 285, "y" : -8.482186985613021},
+{ "x" : 286, "y" : -8.857251784033014},
+{ "x" : 287, "y" : -9.229691987594094},
+{ "x" : 288, "y" : -9.599397234226338},
+{ "x" : 289, "y" : -9.966257972286044},
+{ "x" : 290, "y" : -10.330165493019097},
+{ "x" : 291, "y" : -10.69101196277334},
+{ "x" : 292, "y" : -11.048690454952114},
+{ "x" : 293, "y" : -11.40309498169878},
+{ "x" : 294, "y" : -11.75412052530342},
+{ "x" : 295, "y" : -12.101663069321756},
+{ "x" : 296, "y" : -12.445619629397335},
+{ "x" : 297, "y" : -12.785888283778254},
+{ "x" : 298, "y" : -13.122368203518587},
+{ "x" : 299, "y" : -13.454959682356419},
+{ "x" : 300, "y" : -13.783564166258486},
+{ "x" : 301, "y" : -14.108084282624416},
+{ "x" : 302, "y" : -14.428423869140072},
+{ "x" : 303, "y" : -14.744488002272313},
+{ "x" : 304, "y" : -15.056183025397402},
+{ "x" : 305, "y" : -15.363416576553023},
+{ "x" : 306, "y" : -15.66609761580736},
+{ "x" : 307, "y" : -15.964136452235989},
+{ "x" : 308, "y" : -16.257444770499603},
+{ "x" : 309, "y" : -16.54593565701332},
+{ "x" : 310, "y" : -16.8295236257013},
+{ "x" : 311, "y" : -17.108124643328114},
+{ "x" : 312, "y" : -17.381656154399547},
+{ "x" : 313, "y" : -17.650037105625564},
+{ "x" : 314, "y" : -17.913187969938186},
+{ "x" : 315, "y" : -18.171030770057108},
+{ "x" : 316, "y" : -18.42348910159585},
+{ "x" : 317, "y" : -18.670488155702326},
+{ "x" : 318, "y" : -18.91195474122616},
+{ "x" : 319, "y" : -19.147817306406733},
+{ "x" : 320, "y" : -19.378005960075672},
+{ "x" : 321, "y" : -19.60245249236702},
+{ "x" : 322, "y" : -19.821090394929332},
+{ "x" : 323, "y" : -20.033854880633417},
+{ "x" : 324, "y" : -20.240682902770413},
+{ "x" : 325, "y" : -20.4415131737336},
+{ "x" : 326, "y" : -20.636286183179408},
+{ "x" : 327, "y" : -20.824944215661606},
+{ "x" : 328, "y" : -21.0074313677336},
+{ "x" : 329, "y" : -21.18369356451383},
+{ "x" : 330, "y" : -21.35367857570935},
+{ "x" : 331, "y" : -21.51733603109279},
+{ "x" : 332, "y" : -21.674617435428036},
+{ "x" : 333, "y" : -21.825476182840614},
+{ "x" : 334, "y" : -21.969867570627862},
+{ "x" : 335, "y" : -22.107748812505367},
+{ "x" : 336, "y" : -22.239079051285422},
+{ "x" : 337, "y" : -22.363819370983943},
+{ "x" : 338, "y" : -22.481932808352102},
+{ "x" : 339, "y" : -22.59338436382929},
+{ "x" : 340, "y" : -22.698141011914302},
+{ "x" : 341, "y" : -22.79617171095148},
+{ "x" : 342, "y" : -22.887447412329035},
+{ "x" : 343, "y" : -22.97194106908674},
+{ "x" : 344, "y" : -23.049627643930577},
+{ "x" : 345, "y" : -23.120484116651813},
+{ "x" : 346, "y" : -23.184489490948376},
+{ "x" : 347, "y" : -23.241624800646505},
+{ "x" : 348, "y" : -23.291873115320865},
+{ "x" : 349, "y" : -23.335219545311357},
+{ "x" : 350, "y" : -23.371651246135286},
+{ "x" : 351, "y" : -23.401157422293444},
+{ "x" : 352, "y" : -23.423729330469037},
+{ "x" : 353, "y" : -23.43936028211853},
+{ "x" : 354, "y" : -23.448045645453604},
+{ "x" : 355, "y" : -23.449782846813658},
+{ "x" : 356, "y" : -23.44457137142844},
+{ "x" : 357, "y" : -23.43241276357058},
+{ "x" : 358, "y" : -23.41331062609798},
+{ "x" : 359, "y" : -23.38727061938625},
+{ "x" : 360, "y" : -23.085911002836564},
+/*
     {"x" : 0, "y" : -23.085910996832},
     {"x" : 30, "y" : -18.0427776798567},
     {"x" : 60, "y" : -8.29370504807597},
@@ -136,7 +473,7 @@ selectedCircle = null;
     {"x" : 240, "y" : 8.1046087060629},
     {"x" : 270, "y" : -3.81782448237535},
     {"x" : 300, "y" : -15.0561830491583},
-    {"x" : 330, "y" : -21.9698675820173}
+    {"x" : 330, "y" : -21.9698675820173}*/
   ];
 
 	
@@ -154,8 +491,8 @@ FOLLOWER_WIDTH 				= config.followerWidth;
 OSCILLATING_FOLLOWER_COLOR		= config.followerColor; // debug
 OSCILLATING_FOLLOWER_WIDTH     = 1;  // debug
 OSCILLATING_FOLLOWER_LENGTH = 120;
-followerOffsetX 			= config.initialFollowerOffsetX; // Modifiable by slider
-followerOffsetY 			= config.initialFollowerOffsetY; // Modifiable by slider, not implemented in 0.6.0
+followerOffsetX 			= config.initialFollowerOffsetX;
+followerOffsetY 			= config.initialFollowerOffsetY;
 FOLLOWER_TOP 				= new Point(CAM_CENTER_X + followerOffsetX, CAM_CENTER_Y + followerOffsetY - CAM_RADIUS);
 FOLLOWER_BOTTOM 			= new Point(CAM_CENTER_X + followerOffsetX, CAM_CENTER_Y + followerOffsetY - CAM_RADIUS - FOLLOWER_LENGTH);
 MAX_PRESSURE = config.maxPressure;
@@ -163,16 +500,17 @@ NORMAL_COLOR = config.normalColor;
 NORMAL_WIDTH = config.normalWidth;
 ZERO_ZERO =	 new Point(GRID_X_OFFSET,				GRID_Y_OFFSET);
 UPPER_POINT = new Point(GRID_X_OFFSET,				GRID_Y_OFFSET + CAM_RADIUS);
-BOTTOM =	new Point(GRID_X_OFFSET + CAM_CENTER_X, GRID_Y_OFFSET + CAM_CENTER_Y + 200);
+BOTTOM =		new Point(GRID_X_OFFSET + CAM_CENTER_X, GRID_Y_OFFSET + CAM_CENTER_Y + 200);
 FLAT_PROFILE_ORIGIN =	new Point(GRID_X_OFFSET,		 GRID_Y_OFFSET + CAM_RADIUS);
- 
+
 
 // Oscillating follower prototype:
 var oscillatingCenterX = CAM_CENTER_X - 120;
 var oscillatingCenterY = CAM_CENTER_Y - 80;
 var oscillatingPivot = {x : oscillatingCenterX, y: oscillatingCenterY}
-
 angVal = 0;
+
+
 var pressureAngleCalculated = false;
 
 document.getElementById("btnStart").addEventListener("click", startRotation);
@@ -192,9 +530,6 @@ document.getElementById("rngFollowerOffset").addEventListener("input", moveFollo
 document.getElementById("btnFollowerReset").addEventListener("click", function () {console.log("1");rngFollowerOffset.value = 0; moveFollower() });
 document.getElementById("btnRecalcPressure").addEventListener("click", fullRotation);
 document.getElementById("btnSmooth").addEventListener("click", function () {console.log("2"); flatPath.smooth({ type: 'continuous' }); createCam("smooth");});
-document.getElementById("btnDebug").addEventListener("click", switchMode);
-
-
 
 document.getElementById("btnReload").onclick=function() {
  update("RELOAD");
@@ -210,7 +545,7 @@ document.getElementById("rngOffset").oninput=function() {
 
 
 
-//createObjects();
+createObjects();
 initVariables(); // cam is created here
 //fullRotation();
 
@@ -221,33 +556,29 @@ initVariables(); // cam is created here
 
 
 function createObjects() {
-	project.activeLayer.removeChildren();
 	flatPath = new Path();
 	follower = new Path();
 	oscillatingFollower = new Path();
 	normalVector = new Path();
 	camPath = new Path();
-	camStaticReference = new Path.Circle();
 	verticalLine = new Path();
-		verticalLine.strokeColor = '#0000FF';
-		verticalLine.moveTo(GRID_X_OFFSET, GRID_Y_OFFSET);
-		verticalLine.add(GRID_X_OFFSET, GRID_Y_OFFSET + ANGLE_Y_OFFSET + 180);
-		verticalLine.bringToFront();
+	verticalLine.strokeColor = '#0000FF';
+	verticalLine.moveTo(GRID_X_OFFSET, GRID_Y_OFFSET);
+	verticalLine.add(GRID_X_OFFSET, GRID_Y_OFFSET + ANGLE_Y_OFFSET + 180);
+	verticalLine.bringToFront();
+	
+
 	pressureAnglePath  = new Path({
 		strokeColor: '#000000',
 		strokeWidth: 1,
 		visible:true
 	});
+
+
 	anglePath  = new Path({
 		strokeColor: '#000000',
 		strokeWidth: 1,
 		visible:true
-	});	
-	flatPathBall =	new Path.Circle({
-		center : FLAT_PROFILE_ORIGIN.clone(),
-		radius : 5,
-		strokeColor : '#000000',
-		fillColor : '#00AA00'
 	});
 	
 
@@ -262,7 +593,8 @@ function createObjects() {
 		strokeColor : '#000000',
 		fillColor : '#FFFF00'
 	});
-	
+	createAnglePath();
+	camStaticReference = new Path.Circle();
 
 	// Tracker for pressure angle path:
 	pressureAnglePointInitialY = PRESSURE_ANGLE_Y_OFFSET	+ GRID_Y_OFFSET;
@@ -275,10 +607,16 @@ function createObjects() {
 	});
 	pressureAnglePointInitialPosition.x = GRID_X_OFFSET
 	pressureAnglePointInitialPosition.y = pressureAnglePointInitialY;
-		
+	createPressureAnglePath();
+	
 
-	camStartPoint = new Point();
-	CSR = camStartPoint.clone();
+	flatPathBall =	new Path.Circle({
+		center : FLAT_PROFILE_ORIGIN.clone(),
+		radius : 5,
+		strokeColor : '#000000',
+		fillColor : '#00AA00'
+	});
+
 	origin = new Point(CAM_CENTER_X,CAM_CENTER_Y);
 
 	INITIAL_FOLLOWER = new Path([origin,origin]);
@@ -293,19 +631,22 @@ function createObjects() {
 	// Invisibile object, static: a vertical line crossing the cam, used to determine follower contact point and the pressur angle
 	intersectorRayStart = new Point(CAM_CENTER_X + followerOffsetX, CAM_CENTER_Y + followerOffsetY + 100);
 	intersectorRayEnd = new Point(CAM_CENTER_X	+ followerOffsetX, CAM_CENTER_Y	+ followerOffsetY - CAM_RADIUS - 100);
-	intersectorRay = new Path([intersectorRayStart,intersectorRayEnd]);
+	intersectorRay = new Path([intersectorRayStart,intersectorRayEnd]); 
 
-	createAnglePath();
-	createPressureAnglePath();
-	
+
+	camStartPoint = new Point();
+	CSR= camStartPoint.clone();
 	drawGrid({x:0, y:0}, {x:360, y:CAM_RADIUS}, 10, 10);
+
+
+
 }
 
 /// update -> init --> createCam
 
 function initVariables() {
+	if (camPath) {camPath.parent.project.activeLayer.removeChildren()};
 	createObjects();
-	
 	verticalLines = [];
 	radii = []; // Reference lines
 	radiiReference = [];
@@ -329,9 +670,11 @@ function initVariables() {
 	totAngle=1;
 	intersectorRay.strokeColor = '#000000';
 	camCreated = false;
-	
+
 	assignCamCONSTANTS();
+
 	createCam();
+
 	fileContents.value = JSON.stringify(camData,null,4); // Display cam data in textarea
 }
 
@@ -339,9 +682,6 @@ function initVariables() {
 
 
 function drawMarkers() {
-////
-///debug
-angVal = prevA
 	localAngle = totAngle;
 	if (localAngle < 0) localAngle += 360;
 	if (localAngle > 360) localAngle = 360 - localAngle;
@@ -351,7 +691,7 @@ angVal = prevA
 	pressureAnglePoint.position.y = pressureAnglePointInitialY + pressureAngle;
 
 	anglePoint.position.x = localAngle + GRID_X_OFFSET + 0;
-	anglePoint.position.y = prevA + ANGLE_Y_OFFSET + GRID_Y_OFFSET;//anglePointInitialY - angVal;
+	anglePoint.position.y = anglePointInitialY - angVal;
 
 /*
 	flatPathBall.position.x = localAngle	+ GRID_X_OFFSET  + 0;
@@ -446,6 +786,8 @@ function moveFollower() {
 	follower.segments[1].point.x = FOLLOWER_TOP.x + followerOffsetX;
 	intersectorRay.segments[1].point.x = FOLLOWER_TOP.x + followerOffsetX;
 	normalVector.bringToFront();
+	//rotateBySlider();
+
 	if (chkPressReal.checked) {fullRotation()};
 }
 
@@ -641,7 +983,7 @@ console.log("DOPO=",camPath.segments.length);
 
 
 
-function processReceivedTextAngle(e) { // to be implemented!
+function processReceivedTextAngle(e) {
 console.log("Processing loaded JSON file... (angle type)");
 	var lines = e.target.result;
 console.log(e.target.result);
@@ -712,7 +1054,7 @@ function update(updateType) {
 		try {
 //	console.log("JSON REloaded, parsing...");
 			camData = JSON.parse(fileContents.value);
-//console.log("cam data Reloaded: ", camData);
+console.log("cam data Reloaded: ", camData);
 			document.getElementById("spnStatus").innerHTML = "Cam data reloaded";
 		} catch (e){
 				document.getElementById("spnStatus").innerHTML = "Invalid JSON data:" + e.toString();
@@ -818,52 +1160,31 @@ function rotateCam(angle, type) {
 	lblAngle.innerHTML = rngRotation.value;
 	spnCount.innerHTML = camPath.parent.children.length;
 
+
 	camPath.rotate(totAngle, origin);
 
 
 /// DEBUG NOTE
-// The rotation angle of the follower shall be an input to create the cam profile (camData.segments) in createCam(): given a rotation angle for rotating follower,
-// which is the rdius of the cam? But in rotateCam() the cam profile shall determine the rotation of the rotating follower, which is then an output.
+// The rotation angle of the follower shall be an input to create the cam profile (camData.segments): given a rotation angle for rotating follower, which is the rdius of the cam?
 ////
 	  ///// Rotate the rotating follower
-		//rotationAngle = interpolate(totAngle, decliValues) + decliValues[0].y; // Calculate interpolated value, given any rotation angle
+		rotationAngle = interpolate(totAngle, decliValues) + decliValues[0].y; // Calculate interpolated value, given any rotation angle
 		oscillatingFollower.remove();
 		oscillatingFollower = INITIAL_OSCILLATING_FOLLOWER.clone();
 		oscillatingFollower.strokeColor = OSCILLATING_FOLLOWER_COLOR;
 		oscillatingFollower.strokeWidth = OSCILLATING_FOLLOWER_WIDTH;
-		intersectorCircle = new Path.Circle({
-			center : oscillatingPivot,
-			radius : OSCILLATING_FOLLOWER_LENGTH,
-			strokeColor : '#000000',
-			fillColor : '#44FF44'
-		});
-		intersectorCircle.visible=false;
-		followerWithCamIntersection = intersectorCircle.getIntersections(camPath)
-console.log(0);
-		if (followerWithCamIntersection[0]) {
-console.log("I=",followerWithCamIntersection);
-			if (followerWithCamIntersection[0].point) {
-console.log(1);
-				x0 = followerWithCamIntersection[0].point.x;
-				y0 = followerWithCamIntersection[0].point.y;
+		myVal = 0;
+		for (aaa = 0; aaa< decliValues.length; aaa++) {
+//console.log(decliValues[aaa].x,totAngle);
+			if (decliValues[aaa].x === totAngle) {
+				myVal = decliValues[aaa].y;
+//console.log(decliValues[aaa].x,decliValues[aaa].y);
 			}
-console.log(2);
-			if (followerWithCamIntersection.length>0) {
-console.log(3);
-				x1 = followerWithCamIntersection[1].point.x;
-				y1 = followerWithCamIntersection[1].point.y
-			};
-		} else {
-		// no intersections, error somewhere..
-			x0 = oscillatingPivot.x + 1;
-			y0 = oscillatingPivot.y + 1;
 		}
-		calculatedAngle = parseInt((Math.atan2((x0 - oscillatingPivot.x), (y0 - oscillatingPivot.y)) * 180/Math.PI).toFixed(0));
-console.log(totAngle, calculatedAngle - 90);
-		oscillatingFollower.rotate(90-calculatedAngle, oscillatingPivot);
-		followerEdge = oscillatingFollower.segments[0].point;
+		oscillatingFollower.rotate(myVal, oscillatingPivot);
 		oscillatingFollower.bringToFront();
-
+		followerEdge = oscillatingFollower.segments[0].point;
+		//followerEdgeCenterDist = origin.getDistance(followerEdge);
 	  ///////////////
 
 	angVal = rotationAngle;
@@ -888,18 +1209,14 @@ console.log(totAngle, calculatedAngle - 90);
 			calculatePressureAngle();
 	}
 
-
-	y = oscillatingFollower.segments[0].point.y;
-	x = oscillatingFollower.segments[0].point.x;
-
 	indexPressure = 360 - (totAngle - 1);
 	if (indexPressure < 0) indexPressure = 0;
 	if (indexPressure >360 ) indexPressure = indexPressure - 360;
 	if ( pressureAngle	< minPressureAngle) { minPressureAngle = pressureAngle}
 	if ( pressureAngle	> maxPressureAngle) { maxPressureAngle = pressureAngle}
-	try {		
+	try {
 		pressureAnglePath.segments[indexPressure].point.y = pressureAnglePointInitialY + pressureAngle;
-		anglePath.segments[indexPressure].point.y = ANGLE_Y_OFFSET +  calculatedAngle + GRID_Y_OFFSET -90 ;
+		anglePath.segments[indexPressure].point.y = anglePointInitialY - angVal;
 	} catch (e) {
 		//console.log("Warning, cannot update pressure angle curve: ", e);
 	}
@@ -909,14 +1226,13 @@ console.log(totAngle, calculatedAngle - 90);
 	}
 	try {
 		pressureAnglePath.segments[indexPressure].point.y = pressureAnglePointInitialY + pressureAngle + 1;
-		anglePath.segments[indexPressure].point.y = ANGLE_Y_OFFSET +  calculatedAngle -1 + GRID_Y_OFFSET  -90;
+		anglePath.segments[indexPressure].point.y = anglePointInitialY - angVal + 1;
 		//var tempX = pressureAngleCircles[indexPressure].getPosition().x;
 		//var tempY = pressureAnglePointInitialY + pressureAngle + 1;
 		//pressureAngleCircles[indexPressure].setPosition(tempX,tempY); // DEBUG
 	} catch (e) {
 		//console.log("Warning 2, cannot update pressure angle curve: ", e);
 	}
-
 
 	drawMarkers();
 
@@ -1142,16 +1458,15 @@ function drawGrid(topLeft, bottomRight, gridStepX, gridStepY) {
 
 function drawFlatPathFromJSONdata() {
 		// Draw flat path of cam on grid:
-		//var start = FLAT_PROFILE_ORIGIN.clone(); // debug
-		var start = new Point(camData.segments[0].x + GRID_X_OFFSET, CAM_RADIUS - rngZoom.value * (camData.segments[0].y) + GRID_Y_OFFSET - rngOffset.value); //FLAT_PROFILE_ORIGIN.clone(); // debug
+		var start = FLAT_PROFILE_ORIGIN.clone();
 		flatPath.moveTo(start);
-		flatPathPointMarker.push(new Path.Circle({
+		/*flatPathPointMarker.push(new Path.Circle({
 			center: start,
 			radius: 5,
 			strokeColor: '#000000',
 			fillColor: '#FF0000'
-		}));
-		for (var i=1; i < camData.segments.length; i++) {
+		}));*/
+		for (var i=0; i < camData.segments.length; i++) {
 			flatPathPoint = new Point(camData.segments[i].x + GRID_X_OFFSET, CAM_RADIUS - rngZoom.value * (camData.segments[i].y) + GRID_Y_OFFSET - rngOffset.value); // debug
 			flatPath.add(flatPathPoint);
 			flatPathPointMarker.push(new Path.Circle({
@@ -1169,16 +1484,10 @@ function drawFlatPathFromJSONdata() {
 
 
 function drawAnglePath() {
-// angle of oscillating follower w.r.t horizontal plane; positive CCW, negativw CW, 0 at right.
 		var start = FLAT_PROFILE_ORIGIN.clone();
 		flatPath.moveTo(start);
 		for (var i=0; i < camData.segments.length; i++) {
-		y = oscillatingFollower.segments[0].point.y;
-		x = oscillatingFollower.segments[0].point.x;
-		a = parseInt(Math.atan2(x,y)*180/Math.PI.toFixed(0));
-console.log(a);		
-			flatPathPoint = new Point(camData.segments[i].x + GRID_X_OFFSET, CAM_RADIUS - rngZoom.value * a + GRID_Y_OFFSET - rngOffset.value);
-									  //CAM_RADIUS - rngZoom.value * (camData.segments[i].y) + GRID_Y_OFFSET - rngOffset.value); // debug
+			flatPathPoint = new Point(camData.segments[i].x + GRID_X_OFFSET, CAM_RADIUS - rngZoom.value * (camData.segments[i].y) + GRID_Y_OFFSET - rngOffset.value); // debug
 			flatPath.add(flatPathPoint);
 				flatPathPointMarker.push(new Path.Circle({
 					center: flatPathPoint,
@@ -1193,6 +1502,7 @@ console.log(a);
 
 function createCam(param) {
 	camPath.clear();
+	camCreated = true;
 
 	if (param === "smooth") {
 		// flat path already drawn and smoothed
@@ -1200,14 +1510,12 @@ function createCam(param) {
 		drawFlatPathFromJSONdata();
 	}
 
-	///////////
 	//// Create the circular profile of the cam starting from the flat profile ////
-	///////////
 	intersector.position.x = 0 + GRID_X_OFFSET; // Intersector is the vertical line which crosses the flat path, and is used to determine "local cam radius"
 	intersector.visible=true;
 	intersection = flatPath.getIntersections(intersector);
 	startPosition = new Point(CAM_CENTER_X + (CAM_RADIUS-intersection[0].point.y) + GRID_X_OFFSET, CAM_CENTER_Y ) ; // Start from right, then proceed CCW
-	startPosition = startPosition.rotate(ANGLE_OFFSET, origin); // Rotate starting point from right side to top side
+	startPosition = startPosition.rotate(ANGLE_OFFSET, origin); // Rotate startig point from righ side to top side
 	var vector = origin + startPosition; // Create point w.r.t a base position, i.e. a vector
 
 	camStartPoint = new Path.Circle({
@@ -1220,7 +1528,6 @@ function createCam(param) {
 
 
   if (profileType === "radius") {
-//console.log("Input segments for RADIUS=",camData.segments);
   	// Cam first point:
   	camStart = new Point(startPosition.x, startPosition.y); // Define start position of circular cam path
   	camPath.moveTo(camStart); // Set first point of cam path to user-defined start position
@@ -1241,8 +1548,8 @@ function createCam(param) {
 
 
   if (profileType === "angle") { // DEBUG: ********** flat profile is overridden by hardcoded decliValues[] array  (sun declination test) *********
-console.log("Input segments for ANGLE=",camData.segments);
-  	//camData.segments= [];
+console.log("S=",camData.segments);
+  	camData.segments= [];
 //decliValues = camData.segments;
 	for (i = 0; i < decliValues.length; i++ ) {
 	    ///// Rotate the rotating follower
@@ -1268,14 +1575,13 @@ console.log("Input segments for ANGLE=",camData.segments);
 	      camPath.add(new Point(camData.segments[i].x, camData.segments[i].y));
 	    }
   	} // 	for (i = 0; i < decliValues.length; i++ ) {
-	camPath.add(camData.segments[0]); // close cam
+
 	//camData.segments = camPath.segments;
 	for (i=0; i< camPath._segments.length; i++) {
 		//	console.log("S2=",camPath._segments[i].point.x,camPath._segments[i].point.y);
 	}
 
-updateJsonData();
-	//fileContents.value = JSON.stringify(camData,null,4);
+	fileContents.value = JSON.stringify(camData,null,4);
   } // if (profileType === "angle")
 
 /////////////////
@@ -1284,8 +1590,6 @@ updateJsonData();
 	vector.y = 0;
 	vector.angle = -70;
 	drawReferenceRays(vector);
-
-	camCreated = true;
 } // createCam end
 
 
@@ -1369,17 +1673,10 @@ function exportSVG() {
 
     // Aggiungi eventi di trascinamento del mouse ai cerchi
     function onMouseDown(event) {
-		lastCircle = flatPathPointMarker[flatPathPointMarker.length-1];
         for ( i = 0; i < flatPathPointMarker.length; i++) {
             circle = flatPathPointMarker[i];
-			prevCircle = null;
-			nextCircle = null;
-			if ((i > 0)  && (i < flatPathPointMarker.length-1)) {
-				prevCircle = flatPathPointMarker[i-1];
-				nextCircle = flatPathPointMarker[i+1];
-			}
             if (circle.hitTest(event.point)) {
-console.log("HIT:", i,  prevCircle, nextCircle)
+console.log("HIT:", i,  flatPath.segments[i].point.x - GRID_X_OFFSET, CAM_CENTER_Y - 6 - flatPath.segments[i].point.y)
 				circleHit = true;
                 selectedCircle = circle;
                 selectedSegmentIndex = i;
@@ -1394,34 +1691,17 @@ function onMouseUp (event) {
 
 
 function onMouseDrag (event) {
-		if (circleHit) {		
-	        if (selectedCircle) {		
-				newPoint = event.point.clone();
+		if (circleHit) {
+	        if (selectedCircle) {
 
-				if ((selectedSegmentIndex > 0) && (selectedSegmentIndex < camData.segments.length-1) ) {					
-					if ((newPoint.x > prevCircle.position.x)  && (newPoint.x < nextCircle.position.x)){	
-						selectedCircle.position.x = parseInt((newPoint.x ).toFixed(0));
-					} else {				
-					 // can't cross previous point on the left					
-					}
-				}
-								
-				if (newPoint.y  - GRID_Y_OFFSET > 200)  newPoint.y = 200 + GRID_Y_OFFSET;
-				if (newPoint.y  - GRID_Y_OFFSET < 0) newPoint.y = GRID_Y_OFFSET;
-				
-				if ((selectedSegmentIndex == 0) || (selectedSegmentIndex == camData.segments.length-1)) { // Sync first and last point horizontally
-					selectedCircle.position.y = newPoint.y;
-					lastCircle.position.y = newPoint.y;
-				} else {
-				//  edges not selected
-				}
-				
-		        selectedCircle.position.y = newPoint.y;
-				
+	            //selectedSegmentIndex = selectedCircle.data.index;
+				newPoint = event.point.clone();
+				if (newPoint.x  - GRID_X_OFFSET > 360)  newPoint.x = 360 + GRID_X_OFFSET;
+				if (newPoint.x  - GRID_X_OFFSET < 0) newPoint.x = GRID_X_OFFSET;
+	            selectedCircle.position = newPoint;
 	console.log("   Dragging  ",
-								selectedCircle.position._x,
-								selectedCircle.position._y,
-								lastCircle.position.y);
+								selectedCircle.position._x - GRID_X_OFFSET,
+								CAM_CENTER_Y - 6 - selectedCircle.position._y);
 
 	            updateJsonData();  // Aggiorna il JSON in tempo reale
 				update("RELOAD");
@@ -1434,41 +1714,23 @@ function onMouseDrag (event) {
 
     function updateJsonData() {
         data = JSON.parse(document.getElementById("fileContents").value);
-//console.log("    path, data, sel:",flatPath.segments.length,data.segments.length,selectedSegmentIndex);
+console.log("    path, data, sel:",flatPath.segments.length,data.segments.length,selectedSegmentIndex);
         for (i = 0; i < flatPath.segments.length; i++) {
-console.log(1);		
-			if (selectedCircle) {
-console.log(2);		
-				if (i === selectedSegmentIndex) {
-					data.segments[i].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
-		            data.segments[i].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
-	console.log("    Update ",i,data.segments[i].x,data.segments[i].y);
-				}
-
-				if (selectedSegmentIndex === 0) { // sync first and last
-					//data.segments[camData.segments.length-1].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
-		            data.segments[camData.segments.length-1].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
-	console.log("    Update LAST:",data.segments[i].x,data.segments[i].y);
-				}
-
-				if (selectedSegmentIndex === camData.segments.length-1) { // sync first and last
-					//data.segments[0].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
-		            data.segments[0].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
-	console.log("    Update FIRST: ",data.segments[0].x,data.segments[0].y);
-				}
+			if (i === selectedSegmentIndex) {
+				data.segments[i].x = parseInt((selectedCircle.position._x - GRID_X_OFFSET).toFixed(0));
+	            data.segments[i].y = parseInt( CAM_CENTER_Y - 6 - selectedCircle.position._y.toFixed(0));
+console.log("    Update ",i,data.segments[i].x,data.segments[i].y);
 			}
         }
         document.getElementById("fileContents").value = JSON.stringify(data, null, 4);
     }
-
-
 
 </script>
 </head>
 
 <body>
 <center><big><big>Javascript Cam/Follower mechanism generator/simulator</big></big><br>
-v. 0.6.1 - 08/oct/2024<br>
+v. 0.5.0 - 04/oct/2024<br>
 Made with <a href="http://paperjs.org/tutorials/">paper.js</a> by Jumpjack<br>
 Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 
@@ -1507,7 +1769,6 @@ Source code: <a href="https://github.com/jumpjack/CamFollowerJS">link</a><br>
 <br><br>
 	Status: <span id="spnStatus" name="spnStatus">-</span><br>
 	Objects count: <span id="spnCount" name="spnCount">-</span><br>
-	<button id ="btnDebug">Debug</button><br>
 	<br>
 
 	</td>
