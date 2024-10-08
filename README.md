@@ -6,7 +6,14 @@ Generator and simulator of cams profiles for cam/follower mechanisms.
 
 Try it here:  https://jumpjack.github.io/CamFollowerJS/
 
-**This page can work also offline on your PC** , just download all the .html and .js files in same folder.
+Note: as long as the version number starts by "0", it means the page is still quite buggish, so be patient...
+
+Current version: 0.6.1
+
+Known bugs: rotating follower and cam re-creation without refreshing page not yet working.
+
+
+**This page can work also offline on your PC** , just download indedx.html and all .js files into same folder.
 
 ## Short description
 
