@@ -1017,36 +1017,50 @@ function exportSVG() {
 	resetRotation();
 	camPath.setStrokeColor(camPath.getFillColor());
 
-	SVGheader = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300">\
+	// Before exporting, create a copy of cam
+	copy = camPath.clone();
+
+	// Calculate the center dot position at the true geometric center (origin where cam was drawn)
+	// This is the center of rotation and the grid center
+	centerDotPosition = origin.clone();
+	
+	centerDot = new Path.Circle({
+				center: centerDotPosition,
+				radius: '3',
+				strokeColor: '#000000',
+				strokeWidth : '0.5',
+				fillColor: '#FFFFFF'
+		});
+	
+	// Get bounds of the copy and center dot
+	copyBoundsAfter = copy.bounds;
+	centerDotBounds = centerDot.bounds;
+	
+	// Calculate overall bounds to include both cam and center dot
+	overallMinX = Math.min(copyBoundsAfter.x, centerDotBounds.x);
+	overallMinY = Math.min(copyBoundsAfter.y, centerDotBounds.y);
+	overallMaxX = Math.max(copyBoundsAfter.x + copyBoundsAfter.width, centerDotBounds.x + centerDotBounds.width);
+	overallMaxY = Math.max(copyBoundsAfter.y + copyBoundsAfter.height, centerDotBounds.y + centerDotBounds.height);
+	
+	overallWidth = overallMaxX - overallMinX;
+	overallHeight = overallMaxY - overallMinY;
+	
+	// Add padding
+	PADDING = 20;
+	viewBoxMinX = Math.floor(overallMinX - PADDING);
+	viewBoxMinY = Math.floor(overallMinY - PADDING);
+	viewBoxWidth = Math.ceil(overallWidth + 2*PADDING);
+	viewBoxHeight = Math.ceil(overallHeight + 2*PADDING);
+	
+	// Create SVG with dynamic viewBox
+	SVGheader = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + viewBoxMinX + ' ' + viewBoxMinY + ' ' + viewBoxWidth + ' ' + viewBoxHeight + '">\
 	<g fill="#AAA" stroke="#000000" stroke-width="1">';
 
 	SVGfooter = '	</g>\
 	</svg>';
 
-	SVGtext = camPath.exportSVG(	 { asString: true}	 );
-
-	// Before exporting, create a copy of cam and reposition it so as to touch top/left borders:
-	copy = camPath.clone();
-
-	// Define new center for cam
-	X_MARGIN = 10;
-	Y_MARGIN = 10;
-	newCenterX = camPath.bounds.width/2 + X_MARGIN;
-	newCenterY = camPath.bounds.height/2 + Y_MARGIN;
-
-	// Move copy to new position
-	copy.position = new Point(newCenterX, newCenterY );
-
-	centerDot = new Path.Circle({
-				center: new Point(newCenterX, newCenterY),
-				radius: '1',
-				strokeColor: '#FFFFFF',
-				strokeWidth : '1',
-				fillColor: '#FFFFFF'
-		})
 	// Create SVG export string
 	SVGtext = SVGheader + copy.exportSVG(	 { asString: true}	 ) +
-	//centerHole.exportSVG(	 { asString: true}	 ) +
 	centerDot.exportSVG(	 { asString: true}	 ) +
 	SVGfooter;
 
@@ -1054,6 +1068,7 @@ function exportSVG() {
 	fileName = "cam.svg"; // Default suggested name
 	var url = "data:image/svg+xml;utf8," + encodeURIComponent(SVGtext); // Convert SVG string into downloadable format
 	copy.remove(); // Remove clone of the cam
+	centerDot.remove(); // Remove center dot
 
 	// Prompt user for downloading:
 	var link = document.createElement("a");
