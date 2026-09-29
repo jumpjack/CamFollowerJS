@@ -5,5 +5,6 @@ Advanced version created with AI:
 - mounting structure
 - ... whatever comes to your mind, AI can add it to the code!
 
-Try it here:
+Try it [here](https://jumpjack.github.io/CamFollowerJS/new/index.html).
+
 
