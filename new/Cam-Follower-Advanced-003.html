@@ -1,0 +1,1434 @@
+<!--
+Changelog Simulatore Camma & Bilanciere Rigido
+v4.2 - 2026-09-29:
+- Estese pareti verticali lato opposto fulcro da -22mm a -60mm per fare spazio alla tavoletta guida
+- Aggiunta tavoletta orizzontale forata guida follower (foro rettangolare variabile: piatto 46x36mm, rullo 14x36mm)
+- Aggiunto piano di appoggio base sotto le pareti
+v4.0 - 2026-09-29:
+- Foro perno camma al centro con diametro regolabile (3-20mm) e sezione regolabile: circolare, quadrata, D-shaft con tacca antirotazione
+- Perno passante con sezione uguale al foro camma, rotante solidale alla camma
+- Checkbox per visualizzare elementi strutturali reali in 3D (perno + piano + pareti)
+- Piano orizzontale supporto fulcro con dimensioni e spessore regolabili (larghezza 10-100mm, profondità 40-160mm, spessore 1-10mm)
+- Pareti laterali con foro tondo sempre circolare (Ø foro+gioco), estese orizzontalmente fino al perno camma e verticalmente 10mm sotto raggio max camma
+- Export STL separato: meccanismo (cam-followe.stl) e struttura di supporto (structure.stl)
+- Visualizzazione 2D del foro perno con rotazione solidale
+- Fix: piattaforma e pareti seguono fulcro, pareti ricalcolate dinamicamente
+v3.0 - base con bilanciere rigido, follower piatto/rullo, export ZIP
+-->
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulatore Camma e Bilanciere Rigido</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/csg/babylon.csg.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { brand: { 50: '#f0f9ff', 500: '#0284c7', 600: '#0369a1', 700: '#075985' } } } }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        code,.font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        canvas { touch-action: none; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-slate-800 h-screen flex flex-col overflow-hidden select-none">
+    <header class="bg-white border-b border-slate-200 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shadow-sm z-20 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30"><i class="fa-solid fa-gear text-xl"></i></div>
+            <div>
+                <h1 class="text-base font-bold tracking-tight text-slate-800 flex items-center gap-2">Simulatore Camma & Bilanciere Rigido <span class="text-xs font-medium px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v4.6</span></h1>
+                <p class="text-xs text-slate-500 hidden sm:block">Cinematica con Bilanciere in Appoggio a Lunghezza Fissa</p>
+            </div>
+        </div>
+        <div class="flex items-center flex-wrap gap-2">
+            <button id="btn-eq-time" class="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"><i class="fa-solid fa-sun text-amber-400"></i><span>Equazione del Tempo</span></button>
+            <button id="btn-preset-harmonic" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg text-xs font-medium transition">Armonico</button>
+            <button id="btn-preset-flat" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg text-xs font-medium transition">Circolare</button>
+            <div class="h-4 w-[1px] bg-slate-100 mx-1"></div>
+            <button id="btn-save-json" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg text-xs font-medium flex items-center gap-1 transition"><i class="fa-solid fa-download text-slate-500"></i> salva camma</button>
+            <label id="btn-load-json" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg text-xs font-medium flex items-center gap-1 cursor-pointer transition"><i class="fa-solid fa-upload text-slate-500"></i> carica camma<input type="file" id="file-input-json" accept=".json" class="hidden"></label>
+            <button id="btn-export-mechanism" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow"><i class="fa-solid fa-cogs"></i> Esporta meccanismo (cam-followe.stl)</button>
+            <button id="btn-export-structure" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow"><i class="fa-solid fa-layer-group"></i> Esporta struttura (structure.stl)</button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row gap-2 p-2 overflow-hidden min-h-0 h-full">
+        <section id="panel-scene" class="w-full lg:w-[40%] flex flex-col gap-2 min-h-0 lg:h-full shrink-0">
+            <div class="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm relative min-h-[300px]">
+                <div class="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
+                    <div id="contact-badge" class="pointer-events-auto px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 backdrop-blur-md bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-sm"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span id="contact-badge-text">CONTATTO PERFETTO</span></div>
+                    <div class="pointer-events-auto flex items-center gap-1.5 bg-white/90 backdrop-blur-md p-1 border border-slate-200 rounded-lg shadow-sm">
+                        <button id="btn-zoom-in" class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition"><i class="fa-solid fa-plus text-xs"></i></button>
+                        <button id="btn-zoom-out" class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition"><i class="fa-solid fa-minus text-xs"></i></button>
+                        <button id="btn-zoom-reset" class="px-2 h-7 flex items-center justify-center text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-mono">1.0x</button>
+                        <div class="w-[1px] h-4 bg-slate-200 mx-0.5"></div>
+                        <button id="btn-clear-trails" class="px-2 h-7 flex items-center justify-center text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition gap-1"><i class="fa-solid fa-broom text-xs"></i> Tracce</button>
+                    </div>
+                </div>
+                <div class="relative flex-1 w-full min-h-0 bg-[#eef2f7] overflow-hidden cursor-crosshair">
+                    <canvas id="sim-canvas" class="w-full h-full block"></canvas>
+                    <div class="absolute bottom-3 left-3 z-10">
+                        <div class="group relative">
+                            <button class="w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition"><i class="fa-solid fa-info text-xs"></i></button>
+                            <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block w-72 bg-white/95 backdrop-blur p-3 rounded-lg border border-slate-200 shadow-lg text-[11px] text-slate-600 pointer-events-none">
+                                <div class="flex flex-col gap-1.5">
+                                    <div><span class="text-amber-500 font-semibold">• Trascinamento:</span> Modifica punti camma</div>
+                                    <div><span class="text-red-500 font-semibold">• Fulcro rosso:</span> Trascina per riposizionare il bilanciere</div>
+                                    <div id="info-bilanciere-mode"><span class="text-sky-500 font-semibold">• Bilanciere:</span> <span id="info-bilanciere-text">Appoggiato su piatto follower</span></div>
+                                </div>
+                                <div class="absolute -bottom-1 left-3 w-2 h-2 bg-white border-r border-b border-slate-200 rotate-45"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 border-t border-slate-200 px-2 py-1 text-[10px] font-mono text-slate-500 text-center">SCENA 2D - Vista laterale</div>
+            </div>
+            <div class="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm relative min-h-[300px]">
+                <div class="bg-slate-800 text-white px-3 py-2 flex items-center justify-between shrink-0">
+                    <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-cube text-indigo-400"></i> Vista 3D - Laterale identica al 2D</h3>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-300">Spessore:</span><input type="range" id="input-cam-thickness" min="5" max="40" step="1" value="15" class="w-20 accent-indigo-500 h-1.5 bg-slate-600 rounded cursor-pointer"><span id="label-cam-thickness" class="text-[11px] font-mono text-indigo-300 w-10 text-right">15 mm</span></div>
+                </div>
+                <div class="bg-amber-50 border-b border-amber-200 px-3 py-2 flex items-center gap-3 shrink-0">
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                        <input type="checkbox" id="chk-structural" class="accent-indigo-600 w-4 h-4">
+                        <i class="fa-solid fa-layer-group text-amber-600"></i> Mostra struttura reale (perno + piano + pareti)
+                    </label>
+                    <span class="text-[10px] text-slate-500 ml-auto">Elementi per costruzione reale, non simulazione</span>
+                </div>
+                <div class="relative flex-1 w-full min-h-0 bg-[#eef2f7] overflow-hidden">
+                    <canvas id="babylon-canvas" class="w-full h-full block outline-none"></canvas>
+                    <div class="absolute bottom-2 left-2 right-2 flex justify-between pointer-events-none">
+                        <div class="text-[10px] text-slate-600 bg-white/90 backdrop-blur px-2 py-1 rounded border border-slate-200"><span class="text-cyan-600">●</span> Camma | <span class="text-amber-600">●</span> Follower | <span class="text-red-600">●</span> Bilanciere</div>
+                        <div class="text-[10px] text-slate-600 bg-white/90 backdrop-blur px-2 py-1 rounded border border-slate-200">Drag per ruotare | Scroll per zoom</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="panel-graphs" class="w-full lg:w-[30%] flex flex-col gap-2 min-h-0 lg:h-full overflow-hidden">
+            <div class="flex-[2] bg-white border border-slate-200 rounded-xl p-2 shadow-sm flex flex-col gap-1.5 min-h-0">
+                <div class="flex items-center justify-between shrink-0"><h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-chart-line text-indigo-400"></i> Spostamento $s(\theta)$ [mm]</h2><span id="chart-disp-hover" class="text-xs font-mono text-slate-500">--</span></div>
+                <div class="relative flex-1 w-full min-h-0 bg-[#f8fafc] rounded-lg border border-slate-200 overflow-hidden cursor-crosshair"><canvas id="chart-disp-canvas" class="w-full h-full block"></canvas></div>
+            </div>
+            <div class="flex-1 bg-white border border-slate-200 rounded-xl p-2 shadow-sm flex flex-col gap-1.5 min-h-0">
+                <div class="flex items-center justify-between shrink-0 mb-1"><span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Velocità $v(\theta)$ [mm/rad]</span><span id="val-v-max" class="text-[10px] font-mono text-cyan-600">Max: 0 mm/s</span></div>
+                <div class="flex-1 w-full min-h-0 bg-[#f8fafc] rounded-lg border border-slate-200 overflow-hidden"><canvas id="chart-vel-canvas" class="w-full h-full block"></canvas></div>
+            </div>
+            <div class="flex-1 bg-white border border-slate-200 rounded-xl p-2 shadow-sm flex flex-col gap-1.5 min-h-0">
+                <div class="flex items-center justify-between shrink-0 mb-1"><span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Accelerazione $a(\theta)$ [mm/rad²]</span><span id="val-a-max" class="text-[10px] font-mono text-rose-600">Max: 0 mm/s²</span></div>
+                <div class="flex-1 w-full min-h-0 bg-[#f8fafc] rounded-lg border border-slate-200 overflow-hidden"><canvas id="chart-acc-canvas" class="w-full h-full block"></canvas></div>
+            </div>
+        </section>
+
+        <section id="panel-controls" class="w-full lg:w-[30%] flex flex-col gap-2 overflow-hidden min-h-0 lg:h-full">
+            <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col gap-3 shrink-0">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2"><i class="fa-solid fa-rotate text-indigo-500"></i> Comandi Rotazione</h3>
+                <div class="flex items-center gap-2">
+                    <button id="btn-play" class="w-10 h-10 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg flex items-center justify-center shadow transition"><i id="icon-play" class="fa-solid fa-play text-sm"></i></button>
+                    <button id="btn-step" class="w-10 h-10 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg flex items-center justify-center transition"><i class="fa-solid fa-forward-step text-sm"></i></button>
+                    <button id="btn-reset-angle" class="w-10 h-10 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg flex items-center justify-center transition"><i class="fa-solid fa-rotate-left text-sm"></i></button>
+                    <div class="ml-auto text-right"><div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Angolo θ</div><div id="label-angle-display" class="text-base font-mono font-bold text-slate-800"><span id="label-angle">0.0°</span></div></div>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <div class="flex items-center gap-2"><span class="text-xs font-medium text-slate-500 w-16 shrink-0">Velocità:</span><input type="range" id="input-rpm" min="0" max="180" step="5" value="0" class="flex-1 accent-indigo-500 h-1.5 bg-slate-200 rounded-lg cursor-pointer min-w-0"><span id="label-rpm" class="text-xs font-mono font-semibold text-indigo-600 w-14 text-right shrink-0">0 RPM</span></div>
+                    <div class="flex items-center gap-2"><span class="text-xs font-medium text-slate-500 w-16 shrink-0">Rotazione:</span><input type="range" id="input-angle" min="0" max="360" step="0.5" value="0" class="flex-1 accent-amber-500 h-1.5 bg-slate-200 rounded-lg cursor-pointer min-w-0"><span id="label-angle-slider" class="text-xs font-mono font-semibold text-slate-800 w-12 text-right shrink-0">0.0°</span></div>
+                </div>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col gap-3 overflow-y-auto flex-1 min-h-0">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2 shrink-0"><i class="fa-solid fa-sliders text-indigo-400"></i> Configurazione</h3>
+                <div class="flex flex-col gap-2">
+                    <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Distribuzione Punti</span>
+                    <div class="flex items-center gap-2">
+                        <label class="flex-1 flex items-center gap-1.5 cursor-pointer px-3 py-2 rounded-lg border bg-white hover:bg-slate-50 transition text-xs" id="label-mode-equidistant"><input type="radio" name="control-point-mode" value="equidistant" checked class="accent-indigo-600"><span class="text-slate-700 font-medium">equidistanti</span></label>
+                        <label class="flex-1 flex items-center gap-1.5 cursor-pointer px-3 py-2 rounded-lg border bg-white hover:bg-slate-50 transition text-xs" id="label-mode-free"><input type="radio" name="control-point-mode" value="free" class="accent-indigo-600"><span class="text-slate-700 font-medium">distanza libera</span></label>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="flex flex-col gap-1"><label for="input-rbase" class="text-slate-500 flex justify-between"><span>Raggio Base:</span><span id="label-rbase" class="font-mono text-indigo-600">40 mm</span></label><input type="range" id="input-rbase" min="20" max="80" value="40" class="accent-indigo-500 h-1.5 bg-slate-100 rounded"></div>
+                    <div class="flex flex-col gap-1"><label for="input-ptcount" class="text-slate-500 flex justify-between"><span>Punti:</span><span id="label-ptcount" class="font-mono text-indigo-600">12</span></label><input type="range" id="input-ptcount" min="6" max="24" step="2" value="12" class="accent-indigo-500 h-1.5 bg-slate-100 rounded"></div>
+                    <div class="col-span-2 grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                        <div class="flex flex-col gap-1"><label for="input-rroller" class="text-slate-500 flex justify-between"><span>Rullo inf:</span><span id="label-rroller" class="font-mono text-indigo-600">10 mm</span></label><input type="range" id="input-rroller" min="2" max="25" value="10" class="accent-indigo-500 h-1.5 bg-slate-100 rounded"></div>
+                        <div class="flex flex-col gap-1" id="container-top-roller-radius"><label for="input-toproller" class="text-slate-500 flex justify-between" id="label-toproller-row"><span>Rullo sup:</span><span id="label-toproller" class="font-mono text-sky-600">12 mm</span></label><input type="range" id="input-toproller" min="4" max="20" value="12" class="accent-sky-500 h-1.5 bg-slate-100 rounded"></div>
+                    </div>
+                    <div class="flex flex-col gap-1"><label for="input-gravity" class="text-slate-500 flex justify-between"><span>Molla:</span><span id="label-gravity" class="font-mono text-indigo-600">1.0 g</span></label><input type="range" id="input-gravity" min="0.2" max="3.0" step="0.1" value="1.0" class="accent-indigo-500 h-1.5 bg-slate-100 rounded"></div>
+                    <div class="flex flex-col gap-1"><label for="input-platewidth" class="text-slate-500 flex justify-between"><span>Piatto:</span><span id="label-platewidth" class="font-mono text-indigo-600">70 mm</span></label><input type="range" id="input-platewidth" min="1" max="50" step="5" value="70" class="accent-indigo-500 h-1.5 bg-slate-100 rounded"></div>
+                    <div class="flex flex-col gap-1 col-span-2"><label for="input-cam-thickness-ctrl" class="text-slate-500 flex justify-between"><span>Spessore 3D:</span><span id="label-cam-thickness-ctrl" class="font-mono text-indigo-600">15 mm</span></label><input type="range" id="input-cam-thickness-ctrl" min="5" max="40" step="1" value="15" class="accent-indigo-500 h-1.5 bg-slate-100 rounded"></div>
+
+                    <div class="col-span-2 flex flex-col gap-2 pt-3 border-t border-slate-200 bg-indigo-50/50 -mx-1 px-2 py-2 rounded-lg">
+                        <span class="text-indigo-700 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-circle-dot"></i> Foro Perno Camma (centro)</span>
+                        <div class="flex flex-col gap-1">
+                            <label for="input-cam-bore-dia" class="text-slate-600 flex justify-between text-xs"><span>Diametro foro:</span><span id="label-cam-bore-dia" class="font-mono text-indigo-600">8 mm</span></label>
+                            <input type="range" id="input-cam-bore-dia" min="3" max="20" step="0.5" value="8" class="accent-indigo-600 h-1.5 bg-slate-200 rounded">
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <span class="text-slate-600 font-semibold text-[10px] uppercase">Sezione foro / perno:</span>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <label class="flex flex-col items-center gap-1 cursor-pointer px-1 py-2 rounded-lg border bg-white hover:bg-slate-50 transition text-[11px]" id="label-bore-circle"><input type="radio" name="cam-bore-type" value="circle" checked class="accent-indigo-600"><span class="text-slate-700 font-medium">Circolare</span><span class="text-[9px] text-slate-400">⭕</span></label>
+                                <label class="flex flex-col items-center gap-1 cursor-pointer px-1 py-2 rounded-lg border bg-white hover:bg-slate-50 transition text-[11px]" id="label-bore-square"><input type="radio" name="cam-bore-type" value="square" class="accent-indigo-600"><span class="text-slate-700 font-medium">Quadrata</span><span class="text-[9px] text-slate-400">⬜</span></label>
+                                <label class="flex flex-col items-center gap-1 cursor-pointer px-1 py-2 rounded-lg border bg-white hover:bg-slate-50 transition text-[11px]" id="label-bore-dshaft"><input type="radio" name="cam-bore-type" value="dshaft" class="accent-indigo-600"><span class="text-slate-700 font-medium">Con tacca</span><span class="text-[9px] text-slate-400">D</span></label>
+                            </div>
+                            <div class="text-[9px] text-slate-500 bg-white p-1.5 rounded border">D = circolare con lato piatto per bloccare la camma al perno (antirotazione)</div>
+                        </div>
+                    </div>
+
+                    <div class="col-span-2 flex flex-col gap-2 pt-3 border-t border-amber-200 bg-amber-50/50 -mx-1 px-2 py-2 rounded-lg">
+                        <span class="text-amber-800 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-table"></i> Piano Supporto Fulcro + Pareti</span>
+                        <div class="grid grid-cols-1 gap-2">
+                            <div class="flex flex-col gap-1">
+                                <label for="input-support-width" class="text-slate-600 flex justify-between text-xs"><span>Larghezza piano (X):</span><span id="label-support-width" class="font-mono text-amber-700">60 mm</span></label>
+                                <input type="range" id="input-support-width" min="10" max="100" step="1" value="60" class="accent-amber-600 h-1.5 bg-slate-200 rounded">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label for="input-support-depth" class="text-slate-600 flex justify-between text-xs"><span>Profondità piano (Z):</span><span id="label-support-depth" class="font-mono text-amber-700">80 mm</span></label>
+                                <input type="range" id="input-support-depth" min="40" max="160" step="5" value="80" class="accent-amber-600 h-1.5 bg-slate-200 rounded">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label for="input-support-thickness" class="text-slate-600 flex justify-between text-xs"><span>Spessore piano:</span><span id="label-support-thickness" class="font-mono text-amber-700">5 mm</span></label>
+                                <input type="range" id="input-support-thickness" min="1" max="10" step="0.5" value="5" class="accent-amber-600 h-1.5 bg-slate-200 rounded">
+                            </div>
+                        </div>
+                        <div class="text-[9px] text-slate-600 bg-white p-1.5 rounded border">Le pareti laterali si estendono da fulcro fino al perno camma (X=0) e hanno foro tondo Ø = diametro perno + gioco, indipendente dalla forma del foro camma.</div>
+                    </div>
+
+                    <div class="col-span-2 flex flex-col gap-1.5 pt-2 border-t border-slate-200">
+                        <span class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Estremità follower:</span>
+                        <div class="flex items-center gap-2">
+                            <label class="flex-1 flex items-center justify-center gap-1.5 cursor-pointer px-2 py-2 rounded-lg border bg-white hover:bg-slate-50 transition text-xs" id="label-top-plate"><input type="radio" name="follower-top-type" value="plate" checked class="accent-indigo-600"><span class="text-slate-700 font-medium">Piatto</span></label>
+                            <label class="flex-1 flex items-center justify-center gap-1.5 cursor-pointer px-2 py-2 rounded-lg border bg-white hover:bg-slate-50 transition text-xs" id="label-top-roller"><input type="radio" name="follower-top-type" value="roller" class="accent-indigo-600"><span class="text-slate-700 font-medium">Rullo</span></label>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/80 text-[11px] font-mono text-center shrink-0">
+                    <div class="bg-slate-50 p-2 rounded border border-slate-200"><div class="text-slate-500 text-[9px] uppercase">Alzata Max</div><div id="metric-lift-max" class="text-slate-800 font-bold">0.0 mm</div></div>
+                    <div class="bg-slate-50 p-2 rounded border border-slate-200"><div class="text-slate-500 text-[9px] uppercase">Braccio</div><div id="metric-rocker-len" class="text-slate-800 font-bold">80 mm</div></div>
+                    <div class="bg-slate-50 p-2 rounded border border-slate-200"><div class="text-slate-500 text-[9px] uppercase">Contatto</div><div id="metric-force" class="text-emerald-600 font-bold">OK</div></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const state = {
+            rBase: 40, rRoller: 10, numPoints: 12, controlPoints: [],
+            angleRad: 0, rpm: 0, isPlaying: false,
+            dragMode: null, dragIndex: -1, hoverPointIndex: -1, hoverChartIndex: -1,
+            zoom: 0.3, panX: 0, panY: 85, scalePxPerMm: 2.2,
+            camCenter: { x: 0, y: 0 }, followerX: 0, followerLift: 0, followerVel: 0, followerAcc: 0,
+            fulcrum: { x: 70, y: 200 },
+            rockerLeftLen: 85, rockerRightLen: 110,
+            gravityPreload: 1.0, plateWidth: 70, camThickness: 15,
+            followerTopType: 'plate', topRollerRadius: 12,
+            controlPointDistribution: 'equidistant', controlPointsDirty: false,
+            isDetached: false, isRockerDisconnected: false,
+            leftTipTrail: [], rightTipTrail: [], maxTrailPoints: 150,
+            camBoreDia: 8, camBoreType: 'circle', showStructural: false,
+            supportPlatformWidth: 60, supportPlatformDepth: 80, supportPlatformThickness: 5
+        };
+
+        const ROD_DEPTH = 4;
+        const ROD_WIDTH = 38;
+        const ROD_HEIGHT = 124;
+        const RODS_DISTANCE = 24;
+        const PLATE_THICKNESS = 8;
+
+        const PLATE_PIN_DIA = 3;
+        const PLATE_PIN_LEN = 10;
+        const PLATE_PIN_SPACING_X = 30;
+        const PLATE_PIN_MARGIN_TOP = 12;
+
+const GUIDE_NARROWING = 30;
+const GUIDES_DISTANCE = 60;
+
+var camShaftPivot = null;
+
+        function initControlPoints(preset = 'harmonic') {
+            state.controlPoints = [];
+            const N = state.numPoints;
+            for (let i = 0; i < N; i++) {
+                const angleDeg = (i * 360) / N;
+                const angleRad = (angleDeg * Math.PI) / 180;
+                let lift = 0;
+                if (preset === 'harmonic') { lift = 15 * (1 - Math.cos(2 * angleRad)) / 2 + 5 * Math.sin(angleRad); lift = Math.max(0, lift); }
+                else if (preset === 'equationOfTime') { const B = angleRad; const eqTimeMinutes = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); lift = Math.max(0, (eqTimeMinutes + 15) * 0.95); }
+                else if (preset === 'flat') { lift = 10; }
+                state.controlPoints.push({ angleDeg, angleRad, lift: Math.round(lift * 10) / 10 });
+            }
+            state.controlPointDistribution = 'equidistant'; state.controlPointsDirty = false;
+            const eqRadio = document.querySelector('input[name="control-point-mode"][value="equidistant"]'); if (eqRadio) eqRadio.checked = true;
+            if (typeof window.updateControlPointModeUI === 'function') window.updateControlPointModeUI();
+            if (typeof rebuildBabylonCam === 'function') setTimeout(() => rebuildBabylonCam(), 100);
+        }
+
+        function getInterpolatedLift(angleRad) {
+            let a = angleRad % (2 * Math.PI); if (a < 0) a += 2 * Math.PI;
+            const pts = state.controlPoints; const N = pts.length; if (N === 0) return 0;
+            if (state.controlPointDistribution === 'equidistant') {
+                const step = (2 * Math.PI) / N; const floatIdx = a / step; const i1 = Math.floor(floatIdx) % N; const t = floatIdx - Math.floor(floatIdx);
+                const i0 = (i1 - 1 + N) % N; const i2 = (i1 + 1) % N; const i3 = (i1 + 2) % N;
+                const p0 = pts[i0].lift, p1 = pts[i1].lift, p2 = pts[i2].lift, p3 = pts[i3].lift;
+                const v0 = (p2 - p0) * 0.5, v1 = (p3 - p1) * 0.5; const t2 = t * t, t3 = t2 * t;
+                const lift = (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+                return Math.max(0, lift);
+            } else {
+                let i1 = 0;
+                for (let i = 0; i < N; i++) {
+                    const curr = pts[i].angleRad; const next = pts[(i + 1) % N].angleRad; let currNorm = curr, nextNorm = next, aNorm = a;
+                    if (nextNorm <= currNorm) nextNorm += 2 * Math.PI; if (aNorm < currNorm) aNorm += 2 * Math.PI;
+                    if (aNorm >= currNorm && aNorm < nextNorm) { i1 = i; break; } if (i === N - 1) { i1 = N - 1; }
+                }
+                const i0 = (i1 - 1 + N) % N, i2 = (i1 + 1) % N, i3 = (i1 + 2) % N;
+                const a1 = pts[i1].angleRad; let a2 = pts[i2].angleRad; if (a2 <= a1) a2 += 2 * Math.PI; let aNorm = a; if (aNorm < a1) aNorm += 2 * Math.PI;
+                const delta = a2 - a1; const t = delta > 1e-9? (aNorm - a1) / delta : 0;
+                const p0 = pts[i0].lift, p1 = pts[i1].lift, p2 = pts[i2].lift, p3 = pts[i3].lift;
+                const v0 = (p2 - p0) * 0.5, v1 = (p3 - p1) * 0.5; const t2 = t * t, t3 = t2 * t;
+                const lift = (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+                return Math.max(0, lift);
+            }
+        }
+        function getCamRadius(phi) { let theta = Math.PI / 2 - phi; theta = (theta % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI); return state.rBase + getInterpolatedLift(theta); }
+        function getKinematicsAt(angleRad) {
+            const dRad = 0.005; const s1 = getInterpolatedLift(angleRad - dRad), s2 = getInterpolatedLift(angleRad), s3 = getInterpolatedLift(angleRad + dRad);
+            const ds_dTheta = (s3 - s1) / (2 * dRad), d2s_dTheta2 = (s3 - 2 * s2 + s1) / (dRad * dRad);
+            const omega = (state.rpm * 2 * Math.PI) / 60; const v_mms = ds_dTheta * omega, a_mms2 = d2s_dTheta2 * omega * omega;
+            return { lift: s2, ds_dTheta, d2s_dTheta2, v_mms, a_mms2, omega };
+        }
+
+        let simCanvas, simCtx, chartDispCanvas, chartDispCtx, chartVelCanvas, chartVelCtx, chartAccCanvas, chartAccCtx;
+        function setupCanvases() {
+            simCanvas = document.getElementById('sim-canvas'); simCtx = simCanvas.getContext('2d');
+            chartDispCanvas = document.getElementById('chart-disp-canvas'); chartDispCtx = chartDispCanvas.getContext('2d');
+            chartVelCanvas = document.getElementById('chart-vel-canvas'); chartVelCtx = chartVelCanvas.getContext('2d');
+            chartAccCanvas = document.getElementById('chart-acc-canvas'); chartAccCtx = chartAccCanvas.getContext('2d');
+            resizeCanvases(); window.addEventListener('resize', resizeCanvases);
+        }
+        function resizeCanvases() {
+            const fit = (canvas) => { const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * window.devicePixelRatio; canvas.height = rect.height * window.devicePixelRatio; };
+            fit(simCanvas); fit(chartDispCanvas); fit(chartVelCanvas); fit(chartAccCanvas);
+        }
+        function worldToScreen(wx, wy) { const cx = simCanvas.width / 2 + state.panX, cy = simCanvas.height / 2 + state.panY, scale = state.scalePxPerMm * state.zoom; return { x: cx + wx * scale, y: cy - wy * scale }; }
+        function screenToWorld(sx, sy) { const cx = simCanvas.width / 2 + state.panX, cy = simCanvas.height / 2 + state.panY, scale = state.scalePxPerMm * state.zoom; return { x: (sx - cx) / scale, y: (cy - sy) / scale }; }
+
+        function renderSimulation() {
+            const ctx = simCtx, w = simCanvas.width, h = simCanvas.height;
+            ctx.save(); ctx.clearRect(0, 0, w, h); drawGrid(ctx, w, h);
+            const normalizedAngle = (state.angleRad % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const currentLift = getInterpolatedLift(normalizedAngle); const kin = getKinematicsAt(normalizedAngle); state.followerLift = currentLift;
+            const maxAllowableDecel = -9810 * state.gravityPreload; state.isDetached = kin.a_mms2 < maxAllowableDecel;
+            const followerRollerCenterY = state.rBase + currentLift + state.rRoller; const followerStemTopY = followerRollerCenterY + 110; const topRollerCenterY = followerStemTopY;
+            if (!state.topRollerRadius || state.topRollerRadius < 4) state.topRollerRadius = 12;
+            const followerTopContactY = (state.followerTopType === 'roller')? (topRollerCenterY + state.topRollerRadius) : followerStemTopY;
+            drawCamAndPitchCurve(ctx); drawCamCenterAndRadialLines(ctx); drawFollowerMechanism(ctx, followerRollerCenterY, followerStemTopY, topRollerCenterY);
+            drawRockerArm(ctx, followerTopContactY, topRollerCenterY); drawDynamicScaleBar(ctx, w, h); ctx.restore();
+        }
+        function drawGrid(ctx, w, h) {
+            const scale = state.scalePxPerMm * state.zoom, gridPx = 10 * scale, origin = worldToScreen(0, 0);
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath();
+            for (let x = (origin.x % gridPx) - gridPx; x < w; x += gridPx) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+            for (let y = (origin.y % gridPx) - gridPx; y < h; y += gridPx) { ctx.moveTo(0, y); ctx.lineTo(w, y); } ctx.stroke();
+            ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, origin.y); ctx.lineTo(w, origin.y); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, h); ctx.stroke();
+        }
+        function drawCamAndPitchCurve(ctx) {
+            const camCenterScr = worldToScreen(0, 0), scale = state.scalePxPerMm * state.zoom;
+            ctx.beginPath(); ctx.arc(camCenterScr.x, camCenterScr.y, state.rBase * scale, 0, 2 * Math.PI); ctx.strokeStyle = 'rgba(71, 85, 105, 0.4)'; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+            ctx.beginPath(); for (let i = 0; i <= 180; i++) { const phi = (i * 2 * Math.PI) / 180; const rPitch = getCamRadius(phi) + state.rRoller; const wx = rPitch * Math.cos(phi + state.angleRad), wy = rPitch * Math.sin(phi + state.angleRad); const scr = worldToScreen(wx, wy); if (i === 0) ctx.moveTo(scr.x, scr.y); else ctx.lineTo(scr.x, scr.y); } ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
+            ctx.beginPath(); for (let i = 0; i <= 180; i++) { const phi = (i * 2 * Math.PI) / 180; const rCam = getCamRadius(phi); const wx = rCam * Math.cos(phi + state.angleRad), wy = rCam * Math.sin(phi + state.angleRad); const scr = worldToScreen(wx, wy); if (i === 0) ctx.moveTo(scr.x, scr.y); else ctx.lineTo(scr.x, scr.y); } ctx.closePath();
+            const grad = ctx.createRadialGradient(camCenterScr.x, camCenterScr.y, 10 * scale, camCenterScr.x, camCenterScr.y, 60 * scale); grad.addColorStop(0, '#312e81'); grad.addColorStop(1, '#1e1b4b'); ctx.fillStyle = grad; ctx.fill(); ctx.strokeStyle = '#818cf8'; ctx.lineWidth = 2.5; ctx.stroke();
+        }
+        function drawCamCenterAndRadialLines(ctx) {
+            const camCenterScr = worldToScreen(0, 0), scale = state.scalePxPerMm * state.zoom;
+            state.controlPoints.forEach((pt, idx) => {
+                const rCam = state.rBase + pt.lift; const worldAngle = Math.PI / 2 - pt.angleRad + state.angleRad; const wx = rCam * Math.cos(worldAngle), wy = rCam * Math.sin(worldAngle); const scr = worldToScreen(wx, wy);
+                ctx.beginPath(); ctx.moveTo(camCenterScr.x, camCenterScr.y); ctx.lineTo(scr.x, scr.y); ctx.strokeStyle = (idx === state.hoverPointIndex)? 'rgba(251, 191, 36, 0.8)' : 'rgba(129, 140, 248, 0.25)'; ctx.lineWidth = (idx === state.hoverPointIndex)? 2 : 1; ctx.stroke();
+                ctx.beginPath(); ctx.arc(scr.x, scr.y, (idx === state.hoverPointIndex)? 6 : 4, 0, 2 * Math.PI); ctx.fillStyle = (idx === state.hoverPointIndex)? '#fbbf24' : '#6366f1'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+            });
+            // Foro perno camma - visualizzazione 2D
+            const boreDia = state.camBoreDia || 8;
+            const boreType = state.camBoreType || 'circle';
+            const boreR = (boreDia/2) * scale;
+            const boreAngle = state.angleRad; // segue rotazione camma
+            ctx.save();
+            ctx.translate(camCenterScr.x, camCenterScr.y);
+            ctx.rotate(boreAngle);
+            if (boreType === 'circle') {
+                ctx.beginPath(); ctx.arc(0,0, boreR, 0, 2*Math.PI);
+                ctx.fillStyle = '#1e293b'; ctx.fill();
+                ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
+                ctx.beginPath(); ctx.arc(0,0, Math.max(1,boreR*0.15), 0, 2*Math.PI); ctx.fillStyle='#94a3b8'; ctx.fill();
+            } else if (boreType === 'square') {
+                const s = boreDia * scale;
+                ctx.beginPath(); ctx.rect(-s/2, -s/2, s, s);
+                ctx.fillStyle = '#1e293b'; ctx.fill();
+                ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
+            } else if (boreType === 'dshaft') {
+                const R = boreR;
+                const flatDist = R*0.5;
+                // D shape path
+                const ang = Math.acos(Math.min(1, flatDist / R));
+                ctx.beginPath();
+                ctx.arc(0,0, R, ang, 2*Math.PI - ang);
+                ctx.lineTo(R*Math.cos(ang), flatDist);
+                ctx.closePath();
+                ctx.fillStyle = '#1e293b'; ctx.fill();
+                ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5; ctx.stroke();
+                // segno tacca
+                ctx.beginPath(); ctx.moveTo(-R*0.5, flatDist); ctx.lineTo(R*0.5, flatDist); ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1; ctx.stroke();
+            }
+            ctx.restore();
+            // centro perno
+            ctx.beginPath(); ctx.arc(camCenterScr.x, camCenterScr.y, 7 * scale, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(15,23,42,0.6)'; ctx.fill(); ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 1; ctx.stroke();
+            ctx.beginPath(); ctx.arc(camCenterScr.x, camCenterScr.y, 2, 0, 2 * Math.PI); ctx.fillStyle = '#ffffff'; ctx.fill();
+        }
+        function drawFollowerMechanism(ctx, rollerY, topPlateY, topRollerCenterY) {
+            const scale = state.scalePxPerMm * state.zoom; const rollerCenterScr = worldToScreen(0, rollerY);
+            const plateThickness = PLATE_THICKNESS; const extra = 7;
+            const topCenterY = (topRollerCenterY!== undefined? topRollerCenterY : topPlateY);
+            const bottomEndY = rollerY - extra; const topEndY = topCenterY + extra;
+            const bottomEndScr = worldToScreen(0, bottomEndY); const topEndScr = worldToScreen(0, topEndY);
+            ctx.beginPath(); ctx.arc(rollerCenterScr.x, rollerCenterScr.y, state.rRoller * scale, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(30, 41, 59, 0.85)'; ctx.fill(); ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.arc(rollerCenterScr.x, rollerCenterScr.y, 3 * scale, 0, 2 * Math.PI); ctx.fillStyle = '#e2e8f0'; ctx.fill();
+            ctx.beginPath(); ctx.moveTo(bottomEndScr.x, bottomEndScr.y); ctx.lineTo(topEndScr.x, topEndScr.y); ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 8 * scale; ctx.stroke(); ctx.beginPath(); ctx.moveTo(bottomEndScr.x - 1, bottomEndScr.y); ctx.lineTo(topEndScr.x - 1, topEndScr.y); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 * scale; ctx.stroke();
+            const pinR = 1.5 * scale; ctx.beginPath(); ctx.arc(rollerCenterScr.x, rollerCenterScr.y, pinR, 0, 2*Math.PI); ctx.fillStyle = '#1e293b'; ctx.fill();
+            if (topRollerCenterY!== undefined || state.followerTopType === 'roller') { const trScr = worldToScreen(0, topCenterY); ctx.beginPath(); ctx.arc(trScr.x, trScr.y, pinR, 0, 2*Math.PI); ctx.fillStyle = '#1e293b'; ctx.fill(); }
+            if (state.followerTopType === 'plate') {
+                const plateWidth = state.plateWidth; const pLeft = worldToScreen(-plateWidth/2, topPlateY); const pRight = worldToScreen(plateWidth/2, topPlateY);
+                ctx.beginPath(); ctx.moveTo(pLeft.x, pLeft.y); ctx.lineTo(pRight.x, pRight.y); ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = plateThickness * scale; ctx.lineCap = 'round'; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(pLeft.x, pLeft.y); ctx.lineTo(pRight.x, pRight.y); ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.5 * scale; ctx.stroke();
+            } else {
+                const trCenter = topRollerCenterY!== undefined? topRollerCenterY : topPlateY; const topRollerScr = worldToScreen(0, trCenter); const rTop = state.topRollerRadius;
+                ctx.beginPath(); ctx.arc(topRollerScr.x, topRollerScr.y, rTop * scale, 0, 2 * Math.PI); ctx.fillStyle = '#e2e8f0'; ctx.fill(); ctx.strokeStyle = '#0ea5e9'; ctx.lineWidth = 2.5; ctx.stroke();
+                ctx.beginPath(); ctx.arc(topRollerScr.x, topRollerScr.y, 3 * scale, 0, 2 * Math.PI); ctx.fillStyle = '#0f172a'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+            }
+        }
+        function drawRockerArm(ctx, followerTopContactY, topRollerCenterY) {
+            const scale = state.scalePxPerMm * state.zoom; const fWorld = state.fulcrum; const fScr = worldToScreen(fWorld.x, fWorld.y);
+            const rockerThickness = 10, h = rockerThickness / 2, plateThickness = 4;
+            let alpha = 0, isDisconnected = false, tangentPointWorld = null, p1Center = null, p2Center = null, contactLowerPoint = null;
+            if (state.followerTopType === 'roller') {
+                const C = { x: 0, y: (topRollerCenterY!== undefined? topRollerCenterY : followerTopContactY - state.topRollerRadius) }; const R = state.topRollerRadius, Rprime = R + h;
+                const Fx = fWorld.x, Fy = fWorld.y, dx = C.x - Fx, dy = C.y - Fy, d = Math.hypot(dx, dy);
+                if (d <= Rprime + 0.001) { isDisconnected = true; alpha = Math.PI / 2; } else {
+                    const alpha0 = Math.asin(Math.min(1, Rprime / d)), thetaFC = Math.atan2(dy, dx), ftLen = Math.sqrt(d * d - Rprime * Rprime);
+                    const theta1 = thetaFC + alpha0, theta2 = thetaFC - alpha0; const T1 = { x: Fx + ftLen * Math.cos(theta1), y: Fy + ftLen * Math.sin(theta1) }; const T2 = { x: Fx + ftLen * Math.cos(theta2), y: Fy + ftLen * Math.sin(theta2) };
+                    let chosenTheta; if (T2.y >= T1.y) { chosenTheta = theta2; } else { chosenTheta = theta1; } if (ftLen > state.rockerLeftLen + 1e-6) isDisconnected = true; alpha = chosenTheta;
+                    const sign = (dx * Math.sin(alpha) - dy * Math.cos(alpha)) >=0? 1 : -1; tangentPointWorld = { x: C.x - sign * R * Math.sin(alpha), y: C.y + sign * R * Math.cos(alpha) };
+                }
+                p1Center = { x: fWorld.x + state.rockerLeftLen * Math.cos(alpha), y: fWorld.y + state.rockerLeftLen * Math.sin(alpha) };
+                p2Center = { x: fWorld.x + state.rockerRightLen * Math.cos(alpha + Math.PI), y: fWorld.y + state.rockerRightLen * Math.sin(alpha + Math.PI) };
+                state.isRockerDisconnected = isDisconnected;
+            } else {
+                const plateCenterY = followerTopContactY, plateTopY = plateCenterY + plateThickness / 2, L = state.rockerLeftLen, Fy = fWorld.y, Fx = fWorld.x, dy = plateTopY - Fy, R = Math.hypot(L, h), phi = Math.atan2(h, L), sinVal = dy / R;
+                if (Math.abs(sinVal) > 1.0001) { state.isRockerDisconnected = true; const clampedDy = Math.sign(dy) * R; alpha = Math.asin(Math.max(-1, Math.min(1, clampedDy / R))) - phi; }
+                else {
+                    state.isRockerDisconnected = false; const asinVal = Math.asin(Math.max(-1, Math.min(1, sinVal))); const a1 = asinVal - phi, a2 = Math.PI - asinVal - phi;
+                    const evalA = (a) => { const plX = Fx + L * Math.cos(a) - h * Math.sin(a), plY = Fy + L * Math.sin(a) + h * Math.cos(a); return { a, plX, plY, cosA: Math.cos(a) }; };
+                    const e1 = evalA(a1), e2 = evalA(a2); let chosen = e1; if (Fx > 0) { if (e1.cosA > 0 && e2.cosA < 0) chosen = e2; else if (e1.cosA < 0 && e2.cosA > 0) chosen = e1; else if (Math.abs(e2.plX) < Math.abs(e1.plX)) chosen = e2; } else { if (Math.abs(e2.plX) < Math.abs(e1.plX)) chosen = e2; } alpha = chosen.a;
+                }
+                p1Center = { x: fWorld.x + state.rockerLeftLen * Math.cos(alpha), y: fWorld.y + state.rockerLeftLen * Math.sin(alpha) };
+                p2Center = { x: fWorld.x + state.rockerRightLen * Math.cos(alpha + Math.PI), y: fWorld.y + state.rockerRightLen * Math.sin(alpha + Math.PI) };
+                contactLowerPoint = { x: fWorld.x + state.rockerLeftLen * Math.cos(alpha) - h * Math.sin(alpha), y: fWorld.y + state.rockerLeftLen * Math.sin(alpha) + h * Math.cos(alpha) };
+            }
+            const p1Scr = worldToScreen(p1Center.x, p1Center.y), p2Scr = worldToScreen(p2Center.x, p2Center.y);
+            if (state.isPlaying) { state.leftTipTrail.push({ x: p1Center.x, y: p1Center.y }); state.rightTipTrail.push({ x: p2Center.x, y: p2Center.y }); if (state.leftTipTrail.length > state.maxTrailPoints) state.leftTipTrail.shift(); if (state.rightTipTrail.length > state.maxTrailPoints) state.rightTipTrail.shift(); }
+            drawTrail(ctx, state.leftTipTrail, '#38bdf8'); drawTrail(ctx, state.rightTipTrail, '#f43f5e');
+            const cosA = Math.cos(alpha), sinA = Math.sin(alpha), perpX = -sinA * h, perpY = cosA * h;
+            const leftTop = { x: p1Center.x + perpX, y: p1Center.y + perpY }, leftBottom = { x: p1Center.x - perpX, y: p1Center.y - perpY }, rightTop = { x: p2Center.x + perpX, y: p2Center.y + perpY }, rightBottom = { x: p2Center.x - perpX, y: p2Center.y - perpY };
+            const ltScr = worldToScreen(leftTop.x, leftTop.y), lbScr = worldToScreen(leftBottom.x, leftBottom.y), rtScr = worldToScreen(rightTop.x, rightTop.y), rbScr = worldToScreen(rightBottom.x, rightBottom.y);
+            ctx.beginPath(); ctx.moveTo(ltScr.x, ltScr.y); ctx.lineTo(rtScr.x, rtScr.y); ctx.lineTo(rbScr.x, rbScr.y); ctx.lineTo(lbScr.x, lbScr.y); ctx.closePath(); ctx.fillStyle = state.isRockerDisconnected? '#fda4af' : '#94a3b8'; ctx.fill(); ctx.strokeStyle = state.isRockerDisconnected? '#f43f5e' : '#64748b'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ltScr.x, ltScr.y); ctx.lineTo(rtScr.x, rtScr.y); ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2.5 * scale * 0.2 + 1.5; ctx.stroke();
+            ctx.beginPath(); ctx.arc(fScr.x, fScr.y, 4 * scale, 0, 2 * Math.PI); ctx.fillStyle = '#1e293b'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+            if (state.followerTopType === 'roller' && tangentPointWorld) { const tScr = worldToScreen(tangentPointWorld.x, tangentPointWorld.y); ctx.beginPath(); ctx.arc(tScr.x, tScr.y, 4 * scale, 0, 2 * Math.PI); ctx.fillStyle = state.isRockerDisconnected? 'rgba(244,63,94,0.3)' : 'rgba(14,165,233,0.9)'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke(); }
+            if (state.followerTopType === 'plate' && contactLowerPoint) { const cScr = worldToScreen(contactLowerPoint.x, contactLowerPoint.y); ctx.beginPath(); ctx.arc(cScr.x, cScr.y, 3 * scale, 0, 2 * Math.PI); ctx.fillStyle = state.isRockerDisconnected? 'rgba(244,63,94,0.5)' : 'rgba(16,185,129,0.9)'; ctx.fill(); }
+            ctx.beginPath(); ctx.arc(p2Scr.x, p2Scr.y, 5 * scale, 0, 2 * Math.PI); ctx.fillStyle = '#f43f5e'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.beginPath(); ctx.arc(p1Scr.x, p1Scr.y, 4.5 * scale, 0, 2 * Math.PI); ctx.fillStyle = state.isRockerDisconnected? '#ef4444' : '#38bdf8'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(fScr.x, fScr.y); ctx.lineTo(fScr.x - 12 * scale, fScr.y + 20 * scale); ctx.lineTo(fScr.x + 12 * scale, fScr.y + 20 * scale); ctx.closePath(); ctx.fillStyle = '#475569'; ctx.fill(); ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1.5; ctx.stroke();
+            const isHoverF = (state.hoverPointIndex === 'fulcrum'); ctx.beginPath(); ctx.arc(fScr.x, fScr.y, isHoverF? 9 : 7, 0, 2 * Math.PI); ctx.fillStyle = isHoverF? '#ff4d4d' : '#ef4444'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+        }
+        function drawTrail(ctx, trailArray, colorHex) {
+            if (trailArray.length < 2) return; ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            for (let i = 1; i < trailArray.length; i++) { const alpha = i / trailArray.length; const pPrev = worldToScreen(trailArray[i - 1].x, trailArray[i - 1].y), pCurr = worldToScreen(trailArray[i].x, trailArray[i].y); ctx.beginPath(); ctx.moveTo(pPrev.x, pPrev.y); ctx.lineTo(pCurr.x, pCurr.y); ctx.strokeStyle = colorHex; ctx.globalAlpha = alpha * 0.7; ctx.lineWidth = 2.5 * alpha; ctx.stroke(); } ctx.restore();
+        }
+        function drawDynamicScaleBar(ctx, w, h) { const scale = state.scalePxPerMm * state.zoom, barPx = 10 * scale, x = 16, y = h - 20; ctx.save(); ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + barPx, y); ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4); ctx.moveTo(x + barPx, y - 4); ctx.lineTo(x + barPx, y + 4); ctx.stroke(); ctx.fillStyle = '#f8fafc'; ctx.font = '10px "JetBrains Mono", monospace'; ctx.fillText(`1 cm (10 mm)`, x + barPx + 8, y + 3); ctx.restore(); }
+        function renderDisplacementChart() {
+            const ctx = chartDispCtx, w = chartDispCanvas.width, h = chartDispCanvas.height; ctx.clearRect(0, 0, w, h);
+            const padLeft = 35, padRight = 15, padTop = 15, padBottom = 22, chartW = w - padLeft - padRight, chartH = h - padTop - padBottom, maxLift = 50;
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath();
+            for (let yVal = 0; yVal <= maxLift; yVal += 10) { const yPx = padTop + chartH * (1 - yVal / maxLift); ctx.moveTo(padLeft, yPx); ctx.lineTo(w - padRight, yPx); ctx.fillStyle = '#64748b'; ctx.font = '9px monospace'; ctx.fillText(yVal.toString(), 10, yPx + 3); }
+            for (let deg = 0; deg <= 360; deg += 90) { const xPx = padLeft + (deg / 360) * chartW; ctx.moveTo(xPx, padTop); ctx.lineTo(xPx, h - padBottom); ctx.fillStyle = '#64748b'; ctx.font = '9px monospace'; ctx.fillText(`${deg}°`, xPx - 8, h - 8); } ctx.stroke();
+            ctx.beginPath(); for (let i = 0; i <= 200; i++) { const angleRad = (i * 2 * Math.PI) / 200, lift = getInterpolatedLift(angleRad), xPx = padLeft + (i / 200) * chartW, yPx = padTop + chartH * (1 - lift / maxLift); if (i === 0) ctx.moveTo(xPx, yPx); else ctx.lineTo(xPx, yPx); } ctx.strokeStyle = '#818cf8'; ctx.lineWidth = 2; ctx.stroke();
+            state.controlPoints.forEach((pt, idx) => { const xPx = padLeft + (pt.angleDeg / 360) * chartW, yPx = padTop + chartH * (1 - pt.lift / maxLift), isHover = (idx === state.hoverChartIndex); ctx.beginPath(); ctx.arc(xPx, yPx, isHover? 7 : 4.5, 0, 2 * Math.PI); ctx.fillStyle = isHover? '#fbbf24' : '#6366f1'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke(); });
+            let rotationForChart = state.angleRad % (2 * Math.PI); rotationForChart = (rotationForChart + 2 * Math.PI) % (2 * Math.PI); const currentDeg = (rotationForChart * 180) / Math.PI, curXPx = padLeft + (currentDeg / 360) * chartW; ctx.save(); ctx.beginPath(); ctx.moveTo(curXPx, padTop); ctx.lineTo(curXPx, h - padBottom); ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.stroke(); const curLift = getInterpolatedLift(rotationForChart), curYPx = padTop + chartH * (1 - curLift / maxLift); ctx.beginPath(); ctx.arc(curXPx, curYPx, 5, 0, 2 * Math.PI); ctx.fillStyle = '#f43f5e'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+        }
+        function renderKinematicCharts() {
+            { const ctx = chartVelCtx, w = chartVelCanvas.width, h = chartVelCanvas.height; ctx.clearRect(0, 0, w, h); const padL = 35, padR = 15, padT = 10, padB = 15, cW = w - padL - padR, cH = h - padT - padB; const velVals = []; let maxV = 1; for (let i = 0; i <= 180; i++) { const kin = getKinematicsAt((i * 2 * Math.PI) / 180); velVals.push(kin.ds_dTheta); if (Math.abs(kin.ds_dTheta) > maxV) maxV = Math.abs(kin.ds_dTheta); } const zeroY = padT + cH / 2; ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(w - padR, zeroY); ctx.stroke(); ctx.beginPath(); for (let i = 0; i <= 180; i++) { const xPx = padL + (i / 180) * cW, yPx = zeroY - (velVals[i] / (maxV * 1.2)) * (cH / 2); if (i === 0) ctx.moveTo(xPx, yPx); else ctx.lineTo(xPx, yPx); } ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.8; ctx.stroke(); let rotationVel = state.angleRad % (2 * Math.PI); rotationVel = (rotationVel + 2 * Math.PI) % (2 * Math.PI); const curDegVel = (rotationVel * 180) / Math.PI, curXPx = padL + (curDegVel / 360) * cW; ctx.save(); ctx.beginPath(); ctx.moveTo(curXPx, padT); ctx.lineTo(curXPx, h - padB); ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.restore(); document.getElementById('val-v-max').textContent = `Max: ${(maxV * (state.rpm * 2 * Math.PI / 60)).toFixed(1)} mm/s`; }
+            { const ctx = chartAccCtx, w = chartAccCanvas.width, h = chartAccCanvas.height; ctx.clearRect(0, 0, w, h); const padL = 35, padR = 15, padT = 10, padB = 15, cW = w - padL - padR, cH = h - padT - padB; const accVals = []; let maxA = 1; for (let i = 0; i <= 180; i++) { const kin = getKinematicsAt((i * 2 * Math.PI) / 180); accVals.push(kin.d2s_dTheta2); if (Math.abs(kin.d2s_dTheta2) > maxA) maxA = Math.abs(kin.d2s_dTheta2); } const zeroY = padT + cH / 2; ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(w - padR, zeroY); ctx.stroke(); ctx.beginPath(); for (let i = 0; i <= 180; i++) { const xPx = padL + (i / 180) * cW, yPx = zeroY - (accVals[i] / (maxA * 1.2)) * (cH / 2); if (i === 0) ctx.moveTo(xPx, yPx); else ctx.lineTo(xPx, yPx); } ctx.strokeStyle = '#fb7185'; ctx.lineWidth = 1.8; ctx.stroke(); let rotationAcc = state.angleRad % (2 * Math.PI); rotationAcc = (rotationAcc + 2 * Math.PI) % (2 * Math.PI); const curDegAcc = (rotationAcc * 180) / Math.PI, curXPx = padL + (curDegAcc / 360) * cW; ctx.save(); ctx.beginPath(); ctx.moveTo(curXPx, padT); ctx.lineTo(curXPx, h - padB); ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.restore(); const omega = state.rpm * 2 * Math.PI / 60; document.getElementById('val-a-max').textContent = `Max: ${(maxA * omega * omega / 1000).toFixed(2)} m/s²`; }
+        }
+
+        function setupInteraction() {
+            simCanvas.addEventListener('pointerdown', (e) => {
+                const rect = simCanvas.getBoundingClientRect(); const sx = (e.clientX - rect.left) * window.devicePixelRatio, sy = (e.clientY - rect.top) * window.devicePixelRatio;
+                const fScr = worldToScreen(state.fulcrum.x, state.fulcrum.y);
+                if (Math.hypot(sx - fScr.x, sy - fScr.y) < 18) { state.dragMode = 'fulcrum'; simCanvas.setPointerCapture(e.pointerId); return; }
+                let foundIdx = -1; state.controlPoints.forEach((pt, idx) => { const rCam = state.rBase + pt.lift; const scr = worldToScreen(rCam * Math.cos(pt.angleRad + state.angleRad), rCam * Math.sin(pt.angleRad + state.angleRad)); if (Math.hypot(sx - scr.x, sy - scr.y) < 14) foundIdx = idx; });
+                if (foundIdx!== -1) { state.dragMode = 'camPoint'; state.dragIndex = foundIdx; simCanvas.setPointerCapture(e.pointerId); return; }
+                state.dragMode = 'pan'; state.lastMouseX = e.clientX; state.lastMouseY = e.clientY; simCanvas.setPointerCapture(e.pointerId);
+            });
+            simCanvas.addEventListener('pointermove', (e) => {
+                const rect = simCanvas.getBoundingClientRect(); const sx = (e.clientX - rect.left) * window.devicePixelRatio, sy = (e.clientY - rect.top) * window.devicePixelRatio;
+                if (!state.dragMode) { const fScr = worldToScreen(state.fulcrum.x, state.fulcrum.y); if (Math.hypot(sx - fScr.x, sy - fScr.y) < 18) { state.hoverPointIndex = 'fulcrum'; } else { let foundIdx = -1; state.controlPoints.forEach((pt, idx) => { const rCam = state.rBase + pt.lift; const scr = worldToScreen(rCam * Math.cos(pt.angleRad + state.angleRad), rCam * Math.sin(pt.angleRad + state.angleRad)); if (Math.hypot(sx - scr.x, sy - scr.y) < 14) foundIdx = idx; }); state.hoverPointIndex = foundIdx; } }
+                if (state.dragMode === 'fulcrum') { const wPos = screenToWorld(sx, sy); state.fulcrum.x = Math.round(wPos.x); state.fulcrum.y = Math.round(wPos.y); }
+                else if (state.dragMode === 'camPoint' && state.dragIndex!== -1) { const wPos = screenToWorld(sx, sy); const newLift = Math.max(0, Math.min(50, Math.hypot(wPos.x, wPos.y) - state.rBase)); state.controlPoints[state.dragIndex].lift = Math.round(newLift * 10) / 10; if (typeof rebuildBabylonCam === 'function') rebuildBabylonCam(); }
+                else if (state.dragMode === 'pan') { state.panX += (e.clientX - state.lastMouseX) * window.devicePixelRatio; state.panY += (e.clientY - state.lastMouseY) * window.devicePixelRatio; state.lastMouseX = e.clientX; state.lastMouseY = e.clientY; }
+            });
+            const stopSimDrag = () => { if (state.dragMode) { state.dragMode = null; state.dragIndex = -1; } };
+            simCanvas.addEventListener('pointerup', stopSimDrag); simCanvas.addEventListener('pointercancel', stopSimDrag);
+            simCanvas.addEventListener('wheel', (e) => { e.preventDefault(); state.zoom = Math.max(0.4, Math.min(3.0, state.zoom * (e.deltaY < 0? 1.1 : 0.9))); document.getElementById('btn-zoom-reset').textContent = `${state.zoom.toFixed(1)}x`; }, { passive: false });
+            chartDispCanvas.addEventListener('pointerdown', (e) => {
+                const rect = chartDispCanvas.getBoundingClientRect(); const sx = (e.clientX - rect.left) * window.devicePixelRatio, sy = (e.clientY - rect.top) * window.devicePixelRatio;
+                const chartW = chartDispCanvas.width - 50, chartH = chartDispCanvas.height - 37, maxLift = 50; let foundIdx = -1;
+                state.controlPoints.forEach((pt, idx) => { const xPx = 35 + (pt.angleDeg / 360) * chartW, yPx = 15 + chartH * (1 - pt.lift / maxLift); if (Math.hypot(sx - xPx, sy - yPx) < 14) foundIdx = idx; });
+                if (foundIdx!== -1) { state.dragMode = 'chartPoint'; state.dragIndex = foundIdx; chartDispCanvas.setPointerCapture(e.pointerId); }
+            });
+            chartDispCanvas.addEventListener('pointermove', (e) => {
+                const rect = chartDispCanvas.getBoundingClientRect(); const sx = (e.clientX - rect.left) * window.devicePixelRatio, sy = (e.clientY - rect.top) * window.devicePixelRatio;
+                const chartW = chartDispCanvas.width - 50, chartH = chartDispCanvas.height - 37, maxLift = 50;
+                let hoverIdx = -1; state.controlPoints.forEach((pt, idx) => { const xPx = 35 + (pt.angleDeg / 360) * chartW, yPx = 15 + chartH * (1 - pt.lift / maxLift); if (Math.hypot(sx - xPx, sy - yPx) < 14) hoverIdx = idx; }); state.hoverChartIndex = hoverIdx;
+                document.getElementById('chart-disp-hover').textContent = hoverIdx!== -1? `θ: ${state.controlPoints[hoverIdx].angleDeg.toFixed(1)}° | Lift: ${state.controlPoints[hoverIdx].lift.toFixed(1)} mm` : '--';
+                if (state.dragMode === 'chartPoint' && state.dragIndex!== -1) {
+                    const newLift = Math.max(0, Math.min(50, maxLift * (1 - (sy - 15) / chartH))); state.controlPoints[state.dragIndex].lift = Math.round(newLift * 10) / 10; if (typeof rebuildBabylonCam === 'function') rebuildBabylonCam();
+                    const rawAngle = ((sx - 35) / chartW) * 360; let clampedAngle = ((rawAngle % 360) + 360) % 360; const N = state.controlPoints.length, idx = state.dragIndex, prevIdx = (idx - 1 + N) % N, nextIdx = (idx + 1) % N, prevAngle = state.controlPoints[prevIdx].angleDeg, nextAngle = state.controlPoints[nextIdx].angleDeg, minGap = 5;
+                    let low = (prevAngle + minGap) % 360, high = (nextAngle - minGap + 360) % 360;
+                    if (low <= high) { if (clampedAngle < low) clampedAngle = low; if (clampedAngle > high) clampedAngle = high; } else { const isInvalid = (clampedAngle > high && clampedAngle < low); if (isInvalid) { const distToHigh = Math.min(Math.abs(clampedAngle - high), 360 - Math.abs(clampedAngle - high)); const distToLow = Math.min(Math.abs(clampedAngle - low), 360 - Math.abs(clampedAngle - low)); clampedAngle = distToHigh < distToLow? high : low; } }
+                    const oldAngle = state.controlPoints[idx].angleDeg, angleDiff = Math.min(Math.abs(clampedAngle - oldAngle), 360 - Math.abs(clampedAngle - oldAngle));
+                    if (angleDiff > 0.3) {
+                        state.controlPointsDirty = true;
+                        if (state.controlPointDistribution === 'equidistant') { state.controlPointDistribution = 'free'; const freeRadio = document.querySelector('input[name="control-point-mode"][value="free"]'); if (freeRadio) freeRadio.checked = true; const labelEq = document.getElementById('label-mode-equidistant'), labelFree = document.getElementById('label-mode-free'); if (labelEq) labelEq.classList.remove('ring-2','ring-indigo-300','bg-indigo-50'); if (labelFree) labelFree.classList.add('ring-2','ring-sky-300','bg-sky-50'); }
+                        state.controlPoints[idx].angleDeg = clampedAngle; state.controlPoints[idx].angleRad = (clampedAngle * Math.PI) / 180; if (typeof rebuildBabylonCam === 'function') rebuildBabylonCam();
+                    }
+                }
+            });
+            const stopChartDrag = () => { if (state.dragMode === 'chartPoint') { state.dragMode = null; state.dragIndex = -1; } };
+            chartDispCanvas.addEventListener('pointerup', stopChartDrag); chartDispCanvas.addEventListener('pointercancel', stopChartDrag);
+        }
+
+        function setupUIControls() {
+            const safe = (id, fn) => { const el = document.getElementById(id); if (el && fn) fn(el); return el; };
+            const btnPlay = document.getElementById('btn-play'), iconPlay = document.getElementById('icon-play');
+            if (btnPlay) btnPlay.addEventListener('click', () => { state.isPlaying =!state.isPlaying; if (iconPlay) iconPlay.className = state.isPlaying? "fa-solid fa-pause text-sm" : "fa-solid fa-play text-sm"; });
+            safe('btn-step', el => el.addEventListener('click', () => { state.isPlaying = false; if (iconPlay) iconPlay.className = "fa-solid fa-play text-sm"; state.angleRad += (5 * Math.PI) / 180; }));
+            safe('btn-reset-angle', el => el.addEventListener('click', () => { state.angleRad = 0; const ia = document.getElementById('input-angle'); if (ia) ia.value = 0; const la = document.getElementById('label-angle'); if (la) la.textContent = '0.0°'; const la2 = document.getElementById('label-angle-slider'); if (la2) la2.textContent = '0.0°'; }));
+            safe('input-rpm', el => el.addEventListener('input', (e) => { state.rpm = parseInt(e.target.value, 10); const lr = document.getElementById('label-rpm'); if (lr) lr.textContent = `${state.rpm} RPM`; }));
+            safe('btn-zoom-in', el => el.addEventListener('click', () => { state.zoom = Math.min(3.0, state.zoom * 1.2); const b = document.getElementById('btn-zoom-reset'); if (b) b.textContent = `${state.zoom.toFixed(1)}x`; }));
+            safe('btn-zoom-out', el => el.addEventListener('click', () => { state.zoom = Math.max(0.4, state.zoom / 1.2); const b = document.getElementById('btn-zoom-reset'); if (b) b.textContent = `${state.zoom.toFixed(1)}x`; }));
+            safe('btn-zoom-reset', el => el.addEventListener('click', () => { state.zoom = 1.0; state.panX = 0; state.panY = 20; el.textContent = `1.0x`; }));
+            safe('btn-clear-trails', el => el.addEventListener('click', () => { state.leftTipTrail = []; state.rightTipTrail = []; }));
+            safe('btn-eq-time', el => el.addEventListener('click', () => { initControlPoints('equationOfTime'); }));
+            safe('btn-preset-harmonic', el => el.addEventListener('click', () => { initControlPoints('harmonic'); }));
+            safe('btn-preset-flat', el => el.addEventListener('click', () => { initControlPoints('flat'); }));
+            safe('input-rbase', el => el.addEventListener('input', (e) => { state.rBase = parseInt(e.target.value, 10); const lb = document.getElementById('label-rbase'); if (lb) lb.textContent = `${state.rBase} mm`; if (typeof rebuildBabylonCam === 'function') rebuildBabylonCam(); }));
+            safe('input-rroller', el => el.addEventListener('input', (e) => { state.rRoller = parseInt(e.target.value, 10); const lb = document.getElementById('label-rroller'); if (lb) lb.textContent = `${state.rRoller} mm`; }));
+            safe('input-ptcount', el => el.addEventListener('input', (e) => { state.numPoints = parseInt(e.target.value, 10); const lb = document.getElementById('label-ptcount'); if (lb) lb.textContent = `${state.numPoints}`; state.controlPointDistribution = 'equidistant'; const eqRadio = document.querySelector('input[name="control-point-mode"][value="equidistant"]'); if (eqRadio) eqRadio.checked = true; if (typeof window.updateControlPointModeUI === 'function') window.updateControlPointModeUI(); initControlPoints('harmonic'); if (typeof rebuildBabylonCam === 'function') setTimeout(() => rebuildBabylonCam(), 150); }));
+            safe('input-gravity', el => el.addEventListener('input', (e) => { state.gravityPreload = parseFloat(e.target.value); const lb = document.getElementById('label-gravity'); if (lb) lb.textContent = `${state.gravityPreload.toFixed(1)} g`; }));
+            safe('input-platewidth', el => el.addEventListener('input', (e) => { state.plateWidth = parseInt(e.target.value, 10); const lb = document.getElementById('label-platewidth'); if (lb) lb.textContent = `${state.plateWidth} mm`; if (state.followerTopType === 'plate' && typeof window.rebuildTopPlate3D === 'function') { window.rebuildTopPlate3D(); } }));
+            safe('input-angle', el => el.addEventListener('input', (e) => { const deg = parseFloat(e.target.value); state.angleRad = (deg * Math.PI) / 180; const dtxt = `${deg.toFixed(1)}°`; const l1 = document.getElementById('label-angle'); if (l1) l1.textContent = dtxt; const l2 = document.getElementById('label-angle-slider'); if (l2) l2.textContent = dtxt; }));
+
+            const updateFollowerTopUI = () => {
+                const selected = document.querySelector('input[name="follower-top-type"]:checked')?.value || 'plate';
+                state.followerTopType = selected; window._topMode = selected;
+                const topRollerSlider = document.getElementById('input-toproller'), topRollerLabel = document.getElementById('label-toproller-row'), topRollerContainer = document.getElementById('container-top-roller-radius'), plateSlider = document.getElementById('input-platewidth'), labelPlate = document.getElementById('label-top-plate'), labelRoller = document.getElementById('label-top-roller'), infoText = document.getElementById('info-bilanciere-text');
+                if (selected === 'roller') {
+                    if (infoText) infoText.textContent = 'Spinto da rullo superiore del follower (tangente dal fulcro)';
+                    if (topRollerSlider) { topRollerSlider.disabled = false; topRollerSlider.classList.remove('opacity-40','grayscale'); }
+                    if (topRollerLabel) topRollerLabel.classList.remove('opacity-40'); if (topRollerContainer) topRollerContainer.classList.remove('opacity-40');
+                    if (plateSlider) { plateSlider.disabled = true; plateSlider.classList.add('opacity-40'); }
+                    if (labelRoller) labelRoller.classList.add('ring-2','ring-sky-300','border-sky-300','bg-sky-50'); if (labelPlate) labelPlate.classList.remove('ring-2','ring-indigo-300','border-indigo-300','bg-indigo-50');
+                } else {
+                    if (infoText) infoText.textContent = 'Appoggiato su piatto follower (scorrimento orizzontale) - 4 perni su 2 lati';
+                    if (topRollerSlider) { topRollerSlider.disabled = true; topRollerSlider.classList.add('opacity-40','grayscale'); }
+                    if (topRollerLabel) topRollerLabel.classList.add('opacity-40'); if (topRollerContainer) topRollerContainer.classList.add('opacity-40');
+                    if (plateSlider) { plateSlider.disabled = false; plateSlider.classList.remove('opacity-40'); }
+                    if (labelPlate) labelPlate.classList.add('ring-2','ring-indigo-300','border-indigo-300','bg-indigo-50'); if (labelRoller) labelRoller.classList.remove('ring-2','ring-sky-300','border-sky-300','bg-sky-50');
+                }
+                if (typeof window.rebuildFollowerRods3D === 'function') window.rebuildFollowerRods3D();
+                if (typeof window.rebuildTopPlate3D === 'function') window.rebuildTopPlate3D();
+                if (typeof window.rebuildGuidePlate3D === 'function') window.rebuildGuidePlate3D();
+            };
+            document.querySelectorAll('input[name="follower-top-type"]').forEach(r => { r.addEventListener('change', updateFollowerTopUI); });
+            window.updateFollowerTopUI = updateFollowerTopUI; updateFollowerTopUI();
+            document.getElementById('input-toproller').addEventListener('input', (e) => { state.topRollerRadius = parseInt(e.target.value, 10); document.getElementById('label-toproller').textContent = `${state.topRollerRadius} mm`; });
+
+            const updateControlPointModeUI = () => {
+                const mode = document.querySelector('input[name="control-point-mode"]:checked')?.value || 'equidistant';
+                const labelEq = document.getElementById('label-mode-equidistant'), labelFree = document.getElementById('label-mode-free');
+                if (mode === 'equidistant') { if (labelEq) labelEq.classList.add('ring-2','ring-indigo-300','bg-indigo-50'); if (labelFree) labelFree.classList.remove('ring-2','ring-sky-300','bg-sky-50'); }
+                else { if (labelFree) labelFree.classList.add('ring-2','ring-sky-300','bg-sky-50'); if (labelEq) labelEq.classList.remove('ring-2','ring-indigo-300','bg-indigo-50'); }
+            };
+            const repositionEquidistant = () => {
+                const N = state.controlPoints.length; const sorted = [...state.controlPoints].sort((a,b) => a.angleDeg - b.angleDeg);
+                for (let i = 0; i < N; i++) { const angleDeg = (i * 360) / N; sorted[i].angleDeg = angleDeg; sorted[i].angleRad = (angleDeg * Math.PI) / 180; }
+                state.controlPoints = sorted; state.controlPointDistribution = 'equidistant'; updateControlPointModeUI();
+            };
+            document.querySelectorAll('input[name="control-point-mode"]').forEach(r => { r.addEventListener('change', (e) => { const newMode = e.target.value; if (newMode === 'equidistant') { if (state.controlPointDistribution === 'free') { const confirmed = confirm('Attenzione: attivando la modalità equidistanti tutti i punti verranno riposizionati equidistanti. Continuare?'); if (!confirmed) { const freeRadio = document.querySelector('input[name="control-point-mode"][value="free"]'); if (freeRadio) freeRadio.checked = true; updateControlPointModeUI(); return; } repositionEquidistant(); } else { state.controlPointDistribution = 'equidistant'; } } else { state.controlPointDistribution = 'free'; } updateControlPointModeUI(); }); });
+            updateControlPointModeUI(); window.updateControlPointModeUI = updateControlPointModeUI; window.repositionEquidistant = repositionEquidistant;
+
+            const btnSave = document.getElementById('btn-save-json'), fileInput = document.getElementById('file-input-json');
+            if (btnSave) { btnSave.addEventListener('click', () => { try { const data = { version: '3.2', timestamp: new Date().toISOString(), rBase: state.rBase, rRoller: state.rRoller, numPoints: state.numPoints, controlPoints: state.controlPoints, controlPointDistribution: state.controlPointDistribution, gravityPreload: state.gravityPreload, plateWidth: state.plateWidth, followerTopType: state.followerTopType, topRollerRadius: state.topRollerRadius, fulcrum: state.fulcrum, rockerLeftLen: state.rockerLeftLen, rockerRightLen: state.rockerRightLen, camBoreDia: state.camBoreDia, camBoreType: state.camBoreType, supportPlatformWidth: state.supportPlatformWidth, supportPlatformDepth: state.supportPlatformDepth, supportPlatformThickness: state.supportPlatformThickness }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `camma_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`; document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0); } catch (err) { alert('Errore salvataggio: ' + err.message); } }); }
+            if (fileInput) { fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if (data.rBase!== undefined) { state.rBase = data.rBase; document.getElementById('input-rbase').value = data.rBase; document.getElementById('label-rbase').textContent = `${data.rBase} mm`; } if (data.rRoller!== undefined) { state.rRoller = data.rRoller; document.getElementById('input-rroller').value = data.rRoller; document.getElementById('label-rroller').textContent = `${data.rRoller} mm`; } if (data.plateWidth!== undefined) { state.plateWidth = data.plateWidth; document.getElementById('input-platewidth').value = data.plateWidth; document.getElementById('label-platewidth').textContent = `${data.plateWidth} mm`; } if (data.topRollerRadius!== undefined) { state.topRollerRadius = data.topRollerRadius; document.getElementById('input-toproller').value = data.topRollerRadius; document.getElementById('label-toproller').textContent = `${data.topRollerRadius} mm`; } if (data.gravityPreload!== undefined) { state.gravityPreload = data.gravityPreload; document.getElementById('input-gravity').value = data.gravityPreload; document.getElementById('label-gravity').textContent = `${data.gravityPreload.toFixed(1)} g`; } if (data.followerTopType) { state.followerTopType = data.followerTopType; window._topMode = data.followerTopType; const radio = document.querySelector(`input[name="follower-top-type"][value="${data.followerTopType}"]`); if (radio) radio.checked = true; if (typeof window.updateFollowerTopUI === 'function') window.updateFollowerTopUI(); } if (data.controlPointDistribution) { state.controlPointDistribution = data.controlPointDistribution; const modeRadio = document.querySelector(`input[name="control-point-mode"][value="${data.controlPointDistribution}"]`); if (modeRadio) modeRadio.checked = true; if (typeof window.updateControlPointModeUI === 'function') window.updateControlPointModeUI(); } if (data.fulcrum) { state.fulcrum = data.fulcrum; } if (data.rockerLeftLen) state.rockerLeftLen = data.rockerLeftLen; if (data.rockerRightLen) state.rockerRightLen = data.rockerRightLen;
+                if (data.camBoreDia!== undefined) { state.camBoreDia = data.camBoreDia; const el=document.getElementById('input-cam-bore-dia'); if(el) el.value=data.camBoreDia; const lb=document.getElementById('label-cam-bore-dia'); if(lb) lb.textContent=data.camBoreDia+' mm'; }
+                if (data.camBoreType) { state.camBoreType = data.camBoreType; if (typeof window.updateBoreTypeUI==='function') window.updateBoreTypeUI(); }
+                if (data.supportPlatformWidth!== undefined) { state.supportPlatformWidth=data.supportPlatformWidth; const el=document.getElementById('input-support-width'); if(el) el.value=data.supportPlatformWidth; const lb=document.getElementById('label-support-width'); if(lb) lb.textContent=data.supportPlatformWidth+' mm'; }
+                if (data.supportPlatformDepth!== undefined) { state.supportPlatformDepth=data.supportPlatformDepth; const el=document.getElementById('input-support-depth'); if(el) el.value=data.supportPlatformDepth; const lb=document.getElementById('label-support-depth'); if(lb) lb.textContent=data.supportPlatformDepth+' mm'; }
+                if (data.supportPlatformThickness!== undefined) { state.supportPlatformThickness=data.supportPlatformThickness; const el=document.getElementById('input-support-thickness'); if(el) el.value=data.supportPlatformThickness; const lb=document.getElementById('label-support-thickness'); if(lb) lb.textContent=data.supportPlatformThickness+' mm'; }
+                if (data.controlPoints && Array.isArray(data.controlPoints)) { state.controlPoints = data.controlPoints; if (data.numPoints) { state.numPoints = data.numPoints; document.getElementById('input-ptcount').value = data.numPoints; document.getElementById('label-ptcount').textContent = `${data.numPoints}`; } else { state.numPoints = data.controlPoints.length; } } state.angleRad = 0; state.controlPointsDirty = false;
+                if (typeof rebuildBabylonCam==='function') setTimeout(()=>rebuildBabylonCam(), 100);
+                if (typeof rebuildAllStructural==='function') setTimeout(()=>rebuildAllStructural(), 150);
+                } catch (err) { alert('File non valido: ' + err.message); } finally { e.target.value = ''; } }; reader.readAsText(file); }); }
+        }
+
+        let lastTimestamp = 0;
+        function animate(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp; const dt = (timestamp - lastTimestamp) / 1000; lastTimestamp = timestamp;
+            if (state.isPlaying) { const omega = (state.rpm * 2 * Math.PI) / 60; state.angleRad += omega * dt; }
+            const currentDegRaw = (state.angleRad * 180) / Math.PI, currentDegNorm = ((currentDegRaw % 360) + 360) % 360, degText = `${currentDegNorm.toFixed(1)}°`;
+            const la = document.getElementById('label-angle'); if (la) la.textContent = degText; const la2 = document.getElementById('label-angle-slider'); if (la2) la2.textContent = degText; const angleSliderEl = document.getElementById('input-angle'); if (angleSliderEl) { angleSliderEl.value = currentDegNorm.toFixed(1); }
+            const badge = document.getElementById('contact-badge'), badgeText = document.getElementById('contact-badge-text'), forceLabel = document.getElementById('metric-force');
+            if (state.isRockerDisconnected) { badge.className = "pointer-events-auto px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 backdrop-blur-md bg-rose-50 border border-rose-200 text-rose-700 shadow-sm animate-pulse"; badgeText.textContent = "ATTENZIONE: BILANCIERE SCOLLEGATO"; forceLabel.textContent = "SCOLLEGATO"; forceLabel.className = "text-rose-400 font-bold"; }
+            else if (state.isDetached) { badge.className = "pointer-events-auto px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 backdrop-blur-md bg-rose-50 border border-rose-200 text-rose-700 shadow-sm animate-bounce"; badgeText.textContent = "ATTENZIONE: DISTACCO CAMMA!"; forceLabel.textContent = "DISTACCO!"; forceLabel.className = "text-rose-400 font-bold animate-pulse"; }
+            else { badge.className = "pointer-events-auto px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 backdrop-blur-md bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-sm"; badgeText.textContent = "CONTATTO PERFETTO"; forceLabel.textContent = "OK"; forceLabel.className = "text-emerald-400 font-bold"; }
+            let maxL = 0; state.controlPoints.forEach(p => { if (p.lift > maxL) maxL = p.lift; }); document.getElementById('metric-lift-max').textContent = `${maxL.toFixed(1)} mm`; document.getElementById('metric-rocker-len').textContent = `${state.rockerLeftLen} mm`;
+            renderSimulation(); renderDisplacementChart(); renderKinematicCharts(); if (typeof updateBabylon3D === 'function') { try { updateBabylon3D(); } catch(e) {} } requestAnimationFrame(animate);
+        }
+        window.onload = function() { initControlPoints('harmonic'); setupCanvases(); setupInteraction(); setupUIControls(); setTimeout(() => { if (typeof initBabylon === 'function') initBabylon(); if (typeof setupThicknessSliders === 'function') { setupThicknessSliders(); if (typeof updateBoreTypeUI==='function') updateBoreTypeUI(); } }, 300); requestAnimationFrame(animate); };
+
+        // ==================== BABYLONJS 3D - CON 4 PERNI PIASTRA ====================
+        var babylonEngine = null, babylonScene = null, cam3dMesh = null;
+        var followerRodA = null, followerRodB = null, bottomRollerMesh = null, topRollerMesh = null;
+        var topPlateMesh = null, topPlatePivot = null, topPlatePins = [];
+        var bottomPinMesh = null, topPinMesh = null;
+        var fulcrumTriA = null, fulcrumTriB = null, fulcrumPinMesh = null;
+        var rockerPivot = null, rockerLeftMesh = null, rockerRightMesh = null;
+        // --- Struttura reale ---
+        var camShaftMesh = null, camShaftDFlatMesh = null;
+        var supportPlatformMesh = null;
+        var sideWallAMesh = null, sideWallBMesh = null;
+        var guidePlateMesh = null, guidePlateMeshUpper = null, basePlateMesh = null;
+                var structuralMatPlatform = null, structuralMatWall = null, structuralMatShaft = null, structuralMatGuide = null, structuralMatBase = null;
+
+        function initBabylon() {
+            const canvas = document.getElementById('babylon-canvas'); if (!canvas) return; if (typeof BABYLON === 'undefined') return;
+            if (babylonEngine) { try { babylonEngine.dispose(); } catch(e) {} }
+            try {
+                babylonEngine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+                babylonScene = new BABYLON.Scene(babylonEngine); babylonScene.clearColor = new BABYLON.Color4(0.933, 0.941, 0.969, 1);
+                const camera = new BABYLON.ArcRotateCamera('cam3d', -Math.PI/2, Math.PI/2.2, 600, new BABYLON.Vector3(0, 90, 0), babylonScene);
+                camera.attachControl(canvas, true); camera.wheelPrecision = 2; camera.lowerRadiusLimit = 5; camera.upperRadiusLimit = 5000; camera.panningSensibility = 12; camera.pinchPrecision = 8; camera.maxZ = 20000;
+                camera.onViewMatrixChangedObservable.add(() => { const r = camera.radius; if (r > 1000) { camera.wheelPrecision = 0.8; camera.panningSensibility = 5; } else if (r > 500) { camera.wheelPrecision = 1.2; camera.panningSensibility = 8; } else { camera.wheelPrecision = 2; camera.panningSensibility = 12; } });
+                new BABYLON.HemisphericLight('h1', new BABYLON.Vector3(0, 1, 0), babylonScene).intensity = 0.95;
+                const dir = new BABYLON.DirectionalLight('d1', new BABYLON.Vector3(-0.5, -1, -0.5), babylonScene); dir.intensity = 0.6;
+
+                const triShape = [new BABYLON.Vector3(-12, -14, 0), new BABYLON.Vector3(12, -14, 0), new BABYLON.Vector3(0, 0, 0)];
+                const triPathA = [new BABYLON.Vector3(0,0, 10.5), new BABYLON.Vector3(0,0, 13.5)], triPathB = [new BABYLON.Vector3(0,0, -13.5), new BABYLON.Vector3(0,0, -10.5)];
+                try { fulcrumTriA = BABYLON.MeshBuilder.ExtrudeShape('fulcrumTriA', {shape: triShape, path: triPathA, cap: BABYLON.Mesh.CAP_ALL, closeShape: true}, babylonScene); fulcrumTriB = BABYLON.MeshBuilder.ExtrudeShape('fulcrumTriB', {shape: triShape, path: triPathB, cap: BABYLON.Mesh.CAP_ALL, closeShape: true}, babylonScene); }
+                catch(e) { fulcrumTriA = BABYLON.MeshBuilder.CreateBox('fulcrumFallbackA', {width: 24, height: 14, depth: 3}, babylonScene); fulcrumTriB = BABYLON.MeshBuilder.CreateBox('fulcrumFallbackB', {width: 24, height: 14, depth: 3}, babylonScene); }
+                const fulcrumMat = new BABYLON.StandardMaterial('fulMat', babylonScene); fulcrumMat.diffuseColor = new BABYLON.Color3(0.35, 0.4, 0.45); fulcrumMat.specularColor = new BABYLON.Color3(0,0,0);
+                if (fulcrumTriA) fulcrumTriA.material = fulcrumMat; if (fulcrumTriB) fulcrumTriB.material = fulcrumMat;
+                fulcrumPinMesh = BABYLON.MeshBuilder.CreateCylinder('fulcrumPin', {diameter: 6, height: 32, tessellation: 24}, babylonScene); fulcrumPinMesh.rotation.x = Math.PI/2;
+                const pinMat = new BABYLON.StandardMaterial('pinMat', babylonScene); pinMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.25); pinMat.specularColor = new BABYLON.Color3(0.4,0.4,0.4); fulcrumPinMesh.material = pinMat;
+
+                rockerPivot = new BABYLON.TransformNode('rockerPivot', babylonScene);
+                const rockerMat = new BABYLON.StandardMaterial('rockMat', babylonScene); rockerMat.diffuseColor = new BABYLON.Color3(0.72, 0.75, 0.8); rockerMat.specularColor = new BABYLON.Color3(0.2,0.2,0.2);
+                window.rebuildRocker3D = function() {
+                    const leftLen = (typeof state!== 'undefined'? state.rockerLeftLen : 85) || 85, rightLen = (typeof state!== 'undefined'? state.rockerRightLen : 110) || 110, totalLen = leftLen + rightLen, centerOffset = (leftLen - rightLen) / 2;
+                    if (window.rockerSingleMesh) { try { window.rockerSingleMesh.dispose(); } catch(e) {} window.rockerSingleMesh = null; }
+                    if (rockerLeftMesh) { try { rockerLeftMesh.dispose(); } catch(e) {} rockerLeftMesh = null; }
+                    const box = BABYLON.MeshBuilder.CreateBox('rockerBoxTmp', {width: totalLen, height: 10, depth: 12}, babylonScene); box.position.x = centerOffset; box.computeWorldMatrix(true);
+                    const hole = BABYLON.MeshBuilder.CreateCylinder('rockerHoleTmp', {diameter: 6.5, height: 14, tessellation: 24}, babylonScene); hole.rotation.x = Math.PI/2; hole.computeWorldMatrix(true);
+                    let resultMesh = null;
+                    try { if (typeof BABYLON.CSG!== 'undefined') { const subCSG = BABYLON.CSG.FromMesh(box).subtract(BABYLON.CSG.FromMesh(hole)); resultMesh = subCSG.toMesh('rockerSingle', rockerMat, babylonScene); resultMesh.material = rockerMat; } else { resultMesh = box; resultMesh.material = rockerMat; } } catch(e) { resultMesh = box; resultMesh.material = rockerMat; }
+                    try { box.dispose(); } catch(e) {} try { hole.dispose(); } catch(e) {}
+                    if (resultMesh) { resultMesh.parent = rockerPivot; resultMesh.position.x = centerOffset; window.rockerSingleMesh = resultMesh; rockerLeftMesh = resultMesh; }
+                }; window.rebuildRocker3D();
+
+                const follRodMat = new BABYLON.StandardMaterial('follRodMat', babylonScene); follRodMat.diffuseColor = new BABYLON.Color3(0.75, 0.8, 0.85);
+
+window.rebuildFollowerRods3D = function() {
+    if (followerRodA) { try { followerRodA.dispose(); } catch(e) {} followerRodA = null; }
+    if (followerRodB) { try { followerRodB.dispose(); } catch(e) {} followerRodB = null; }
+
+    const isPlate = (typeof state !== 'undefined' && state.followerTopType === 'plate') || window._topMode === 'plate';
+
+    const rodHeight = ROD_HEIGHT;
+    const rodDepth = ROD_DEPTH;
+    const holeDiameter = 3.5;
+
+    // Larghezza dinamica
+    const NARROW_WIDTH = 10; // basta per foro da 3.5mm + 3mm di bordo per lato
+    const WIDE_WIDTH = PLATE_PIN_SPACING_X + 12; // es: 30 + 12 = 42mm per contenere i 2 fori da 3.5
+
+    const rodWidth = isPlate ? WIDE_WIDTH : NARROW_WIDTH;
+
+    let holesDef = [];
+    if (isPlate) {
+        // piastra: 1 foro basso centrale per rullo camma + 2 fori in alto per i perni piastra
+        const yTop = 55; // allineato ai perni, vedi fix precedente
+        holesDef = [
+            { x: -PLATE_PIN_SPACING_X/2, y: yTop },
+            { x:  PLATE_PIN_SPACING_X/2, y: yTop },
+            { x:  0, y: -55 }
+        ];
+    } else {
+        // rullo: solo 2 fori centrali, asta stretta
+        holesDef = [
+            { x: 0, y: -55 },
+            { x: 0, y: 55 }
+        ];
+    }
+
+    function createRodWithHoles(name, zPos) {
+        const box = BABYLON.MeshBuilder.CreateBox(name+'_boxTmp', {width: rodWidth, height: rodHeight, depth: rodDepth}, babylonScene);
+        box.computeWorldMatrix(true);
+        let csg = BABYLON.CSG.FromMesh(box);
+
+        holesDef.forEach((h, idx) => {
+            const hc = BABYLON.MeshBuilder.CreateCylinder(name+'_h'+idx, {diameter: holeDiameter, height: rodDepth+2, tessellation: 20}, babylonScene);
+            hc.rotation.x = Math.PI/2; // asse Z
+            hc.position.x = h.x;
+            hc.position.y = h.y;
+            hc.position.z = 0;
+            hc.computeWorldMatrix(true);
+            csg = csg.subtract(BABYLON.CSG.FromMesh(hc));
+            hc.dispose();
+        });
+
+        const result = csg.toMesh(name, follRodMat, babylonScene);
+        result.material = follRodMat;
+        try { box.dispose(); } catch(e) {}
+        result.position.z = zPos;
+        result.position.x = 0;
+        result.position.y = 0;
+        return result;
+    }
+
+    followerRodA = createRodWithHoles('followerRodA', RODS_DISTANCE/2);
+    followerRodB = createRodWithHoles('followerRodB', -RODS_DISTANCE/2);
+};
+
+
+                window.rebuildFollowerRods3D();
+
+                const rollerMatBottom = new BABYLON.StandardMaterial('rollMatBottom', babylonScene); rollerMatBottom.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.55);
+                bottomRollerMesh = BABYLON.MeshBuilder.CreateCylinder('botRoll', {diameter: 20, height: 10, tessellation: 32}, babylonScene); bottomRollerMesh.rotation.x = Math.PI/2; bottomRollerMesh.material = rollerMatBottom;
+                const rollerMatTop = new BABYLON.StandardMaterial('rollMatTop', babylonScene); rollerMatTop.diffuseColor = new BABYLON.Color3(0.15, 0.55, 0.85);
+                topRollerMesh = BABYLON.MeshBuilder.CreateCylinder('topRoll', {diameter: 24, height: 10, tessellation: 32}, babylonScene); topRollerMesh.rotation.x = Math.PI/2; topRollerMesh.material = rollerMatTop;
+                bottomPinMesh = BABYLON.MeshBuilder.CreateCylinder('botPin', {diameter: 3, height: 30, tessellation: 16}, babylonScene); bottomPinMesh.rotation.x = Math.PI/2; bottomPinMesh.material = pinMat;
+                topPinMesh = BABYLON.MeshBuilder.CreateCylinder('topPin', {diameter: 3, height: 30, tessellation: 16}, babylonScene); topPinMesh.rotation.x = Math.PI/2; topPinMesh.material = pinMat;
+
+                // --- PIASTRA CON 4 PERNI ---
+                window.rebuildTopPlate3D = function() {
+                    if (topPlatePivot) { try { topPlatePivot.dispose(); } catch(e) {} topPlatePivot = null; }
+                    topPlatePins = []; topPlateMesh = null;
+                    const rodsDist = RODS_DISTANCE, rodDepth = ROD_DEPTH;
+                    const plateDepth = rodsDist - rodDepth; // tra facce interne
+                    topPlatePivot = new BABYLON.TransformNode('topPlatePivot', babylonScene);
+                    const plateMat = new BABYLON.StandardMaterial('plateMat', babylonScene); plateMat.diffuseColor = new BABYLON.Color3(0.9, 0.92, 0.95);
+                    topPlateMesh = BABYLON.MeshBuilder.CreateBox('topPlate', {width: 70, height: 3, depth: plateDepth}, babylonScene);
+                    topPlateMesh.material = plateMat; topPlateMesh.parent = topPlatePivot;
+                    const pinPos = [
+                        { x: -PLATE_PIN_SPACING_X/2, z: -plateDepth/2 - PLATE_PIN_LEN/2 },
+                        { x: PLATE_PIN_SPACING_X/2, z: -plateDepth/2 - PLATE_PIN_LEN/2 },
+                        { x: -PLATE_PIN_SPACING_X/2, z: plateDepth/2 + PLATE_PIN_LEN/2 },
+                        { x: PLATE_PIN_SPACING_X/2, z: plateDepth/2 + PLATE_PIN_LEN/2 },
+                    ];
+                    pinPos.forEach((p,i)=>{
+                        const pin = BABYLON.MeshBuilder.CreateCylinder('platePin_'+i, {diameter: PLATE_PIN_DIA, height: PLATE_PIN_LEN, tessellation: 16}, babylonScene);
+                        pin.rotation.x = Math.PI/2; pin.position.x = p.x; pin.position.y = 0; pin.position.z = p.z; pin.material = pinMat; pin.parent = topPlatePivot; topPlatePins.push(pin);
+                    });
+                };
+                window.rebuildTopPlate3D();
+
+                window.setFollowerTopMode = function(mode){ window._topMode = mode; if(typeof state!=='undefined') state.followerTopType = mode; rebuildFollowerRods3D(); rebuildTopPlate3D(); };
+
+                rebuildBabylonCam();
+                rebuildAllStructural();
+                babylonEngine.runRenderLoop(() => { if (babylonScene) babylonScene.render(); });
+                window.addEventListener('resize', () => { if (babylonEngine) babylonEngine.resize(); });
+            } catch (err) { console.error('Babylon init error', err); }
+        }
+
+        function rebuildBabylonCam() {
+            if (!babylonScene || typeof BABYLON === 'undefined' || typeof state === 'undefined' || typeof getCamRadius!== 'function') return;
+            if (cam3dMesh) { try { cam3dMesh.dispose(); } catch(e) {} cam3dMesh = null; }
+            const thickness = (state.camThickness || 15), N = 180, shape = [];
+            for (let i = 0; i < N; i++) { const phi = (i * 2 * Math.PI) / N, r = getCamRadius(phi); shape.push(new BABYLON.Vector3(r * Math.cos(phi), r * Math.sin(phi), 0)); }
+            const path = [new BABYLON.Vector3(0,0,-thickness/2), new BABYLON.Vector3(0,0,thickness/2)];
+            let baseCamMesh = null;
+            try { baseCamMesh = BABYLON.MeshBuilder.ExtrudeShape('camTmpBase', {shape: shape, path: path, cap: BABYLON.Mesh.CAP_ALL, closeShape: true}, babylonScene); }
+            catch (e) { 
+                cam3dMesh = BABYLON.MeshBuilder.CreateCylinder('camFallback', {diameter: state.rBase*2, height: thickness, tessellation: 64}, babylonScene);
+                const camMatFallback = new BABYLON.StandardMaterial('camMatFallback', babylonScene); camMatFallback.diffuseColor = new BABYLON.Color3(0.18, 0.16, 0.45); cam3dMesh.material = camMatFallback;
+                if (typeof rebuildCamShaft3D === 'function') rebuildCamShaft3D();
+                return;
+            }
+            const boreDia = state.camBoreDia || 8;
+            const boreType = state.camBoreType || 'circle';
+            try {
+                if (typeof BABYLON.CSG !== 'undefined') {
+                    baseCamMesh.computeWorldMatrix(true);
+                    let camCSG = BABYLON.CSG.FromMesh(baseCamMesh);
+                    let boreCSG = null;
+                    let tmpMeshes = [];
+                    if (boreType === 'circle') {
+                        const bore = BABYLON.MeshBuilder.CreateCylinder('boreTmp', {diameter: boreDia, height: thickness+4, tessellation: 32}, babylonScene);
+                        bore.rotation.x = Math.PI/2;
+                        bore.computeWorldMatrix(true);
+                        boreCSG = BABYLON.CSG.FromMesh(bore);
+                        tmpMeshes.push(bore);
+                    } else if (boreType === 'square') {
+                        const bore = BABYLON.MeshBuilder.CreateBox('boreTmp', {width: boreDia, height: boreDia, depth: thickness+4}, babylonScene);
+                        bore.computeWorldMatrix(true);
+                        boreCSG = BABYLON.CSG.FromMesh(bore);
+                        tmpMeshes.push(bore);
+                    } else if (boreType === 'dshaft') {
+                        const cyl = BABYLON.MeshBuilder.CreateCylinder('boreCylTmp', {diameter: boreDia, height: thickness+4, tessellation: 32}, babylonScene);
+                        cyl.rotation.x = Math.PI/2;
+                        cyl.computeWorldMatrix(true);
+                        let cylCSG = BABYLON.CSG.FromMesh(cyl);
+                        const flatDist = (boreDia/2)*0.5;
+                        const cutter = BABYLON.MeshBuilder.CreateBox('boreCutterTmp', {width: boreDia*2, height: boreDia, depth: thickness+6}, babylonScene);
+                        cutter.position.y = flatDist + boreDia/2;
+                        cutter.computeWorldMatrix(true);
+                        let cutterCSG = BABYLON.CSG.FromMesh(cutter);
+                        boreCSG = cylCSG.subtract(cutterCSG);
+                        tmpMeshes.push(cyl, cutter);
+                    }
+                    if (boreCSG) {
+                        camCSG = camCSG.subtract(boreCSG);
+                    }
+                    // dispose tmp
+                    try { baseCamMesh.dispose(); } catch(e) {}
+                    tmpMeshes.forEach(m=>{ try{ m.dispose(); }catch(e){} });
+                    const camMat = new BABYLON.StandardMaterial('camMat', babylonScene); camMat.diffuseColor = new BABYLON.Color3(0.18, 0.16, 0.45);
+                    cam3dMesh = camCSG.toMesh('cam3d', camMat, babylonScene);
+                    cam3dMesh.material = camMat;
+                } else {
+                    // no CSG, fallback without hole
+                    const camMat = new BABYLON.StandardMaterial('camMat', babylonScene); camMat.diffuseColor = new BABYLON.Color3(0.18, 0.16, 0.45);
+                    cam3dMesh = baseCamMesh;
+                    cam3dMesh.material = camMat;
+                }
+            } catch (e) {
+                console.warn('CSG cam bore failed', e);
+                try { baseCamMesh.dispose(); } catch(ee){}
+                cam3dMesh = BABYLON.MeshBuilder.CreateCylinder('camFallback2', {diameter: state.rBase*2, height: thickness, tessellation: 64}, babylonScene);
+                const camMat = new BABYLON.StandardMaterial('camMat', babylonScene); camMat.diffuseColor = new BABYLON.Color3(0.18, 0.16, 0.45); cam3dMesh.material = camMat;
+            }
+            if (typeof rebuildCamShaft3D === 'function') rebuildCamShaft3D();
+            if (typeof rebuildSideWalls3D === 'function') rebuildSideWalls3D();
+        }
+
+        // ========== NUOVE FUNZIONI STRUTTURA REALE ==========
+        function ensureStructuralMaterials() {
+            if (!babylonScene) return;
+            if (!structuralMatPlatform) {
+                structuralMatPlatform = new BABYLON.StandardMaterial('structPlatformMat', babylonScene);
+                structuralMatPlatform.diffuseColor = new BABYLON.Color3(0.75, 0.72, 0.68);
+                structuralMatPlatform.specularColor = new BABYLON.Color3(0.1,0.1,0.1);
+            }
+            if (!structuralMatWall) {
+                structuralMatWall = new BABYLON.StandardMaterial('structWallMat', babylonScene);
+                structuralMatWall.diffuseColor = new BABYLON.Color3(0.55, 0.55, 0.60);
+                structuralMatWall.specularColor = new BABYLON.Color3(0.1,0.1,0.1);
+            }
+            if (!structuralMatShaft) {
+                structuralMatShaft = new BABYLON.StandardMaterial('structShaftMat', babylonScene);
+                structuralMatShaft.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.28);
+                structuralMatShaft.specularColor = new BABYLON.Color3(0.4,0.4,0.4);
+            }
+            if (!structuralMatGuide) {
+                structuralMatGuide = new BABYLON.StandardMaterial('structGuideMat', babylonScene);
+                structuralMatGuide.diffuseColor = new BABYLON.Color3(0.60, 0.62, 0.68);
+                structuralMatGuide.specularColor = new BABYLON.Color3(0.1,0.1,0.1);
+            }
+            if (!structuralMatBase) {
+                structuralMatBase = new BABYLON.StandardMaterial('structBaseMat', babylonScene);
+                structuralMatBase.diffuseColor = new BABYLON.Color3(0.45, 0.45, 0.50);
+                structuralMatBase.specularColor = new BABYLON.Color3(0.1,0.1,0.1);
+            }
+        }
+
+function rebuildCamShaft3D() {
+    if (!babylonScene) return;
+    ensureStructuralMaterials();
+    if (camShaftMesh) { try{camShaftMesh.dispose()}catch(e){} camShaftMesh=null; }
+    if (camShaftPivot) { try{camShaftPivot.dispose()}catch(e){} camShaftPivot=null; }
+
+    const boreDia = state.camBoreDia || 8;
+    const boreType = state.camBoreType || 'circle';
+    const shaftLength = (state.supportPlatformDepth||80)+60;
+
+    camShaftPivot = new BABYLON.TransformNode('camShaftPivot', babylonScene);
+    camShaftPivot.position.set(0,0,0);
+
+    if (boreType === 'circle') {
+        camShaftMesh = BABYLON.MeshBuilder.CreateCylinder('camShaft', {diameter:boreDia, height:shaftLength, tessellation:24}, babylonScene);
+        camShaftMesh.rotation.x = Math.PI/2; // solo qui
+        camShaftMesh.parent = camShaftPivot;
+    } else if (boreType === 'square') {
+        camShaftMesh = BABYLON.MeshBuilder.CreateBox('camShaft', {width:boreDia, height:boreDia, depth:shaftLength}, babylonScene);
+        camShaftMesh.parent = camShaftPivot; // già lungo Z, nessuna rotazione
+    } else { // dshaft
+        const cyl = BABYLON.MeshBuilder.CreateCylinder('shaftCylTmp', {diameter:boreDia, height:shaftLength, tessellation:24}, babylonScene);
+        cyl.rotation.x = Math.PI/2; cyl.computeWorldMatrix(true);
+        const cutter = BABYLON.MeshBuilder.CreateBox('shaftCutterTmp', {width:boreDia*2, height:boreDia, depth:shaftLength+2}, babylonScene);
+        cutter.position.y = (boreDia/2)*0.5 + boreDia/2; cutter.computeWorldMatrix(true);
+        const dCSG = BABYLON.CSG.FromMesh(cyl).subtract(BABYLON.CSG.FromMesh(cutter));
+        cyl.dispose(); cutter.dispose();
+        camShaftMesh = dCSG.toMesh('camShaft', structuralMatShaft, babylonScene);
+        camShaftMesh.parent = camShaftPivot; // CSG è già lungo Z
+    }
+    camShaftMesh.material = structuralMatShaft;
+    camShaftMesh.setEnabled(!!state.showStructural);
+}
+
+
+
+        function rebuildSupportPlatform3D() {
+            if (!babylonScene) return;
+            ensureStructuralMaterials();
+            if (supportPlatformMesh) { try { supportPlatformMesh.dispose(); } catch(e){} supportPlatformMesh = null; }
+            const w = state.supportPlatformWidth || 120;
+            const d = state.supportPlatformDepth || 80;
+            const t = state.supportPlatformThickness || 10;
+            try {
+                supportPlatformMesh = BABYLON.MeshBuilder.CreateBox('supportPlatform', {width: w, height: t, depth: d}, babylonScene);
+                supportPlatformMesh.material = structuralMatPlatform;
+                const topY = (state.fulcrum.y - 14);
+                supportPlatformMesh.position.x = state.fulcrum.x;
+                supportPlatformMesh.position.y = topY - t/2;
+                supportPlatformMesh.position.z = 0;
+                supportPlatformMesh.setEnabled(!!state.showStructural);
+            } catch(e) { console.warn('platform build failed', e); }
+        }
+
+                function rebuildSideWalls3D() {
+            if (!babylonScene) return;
+            ensureStructuralMaterials();
+            if (sideWallAMesh) { try { sideWallAMesh.dispose(); } catch(e){} sideWallAMesh = null; }
+            if (sideWallBMesh) { try { sideWallBMesh.dispose(); } catch(e){} sideWallBMesh = null; }
+            const platW = state.supportPlatformWidth || 120;
+            const platD = state.supportPlatformDepth || 80;
+            const platT = state.supportPlatformThickness || 5;
+const boreDia = state.camBoreDia || 8;
+const boreType = state.camBoreType || 'circle';
+const wallThick = 5;
+const clearance = 1.2;
+let holeDia;
+if (boreType === 'square') {
+    const diagonal = boreDia * Math.SQRT2;
+    holeDia = diagonal + clearance;
+} else {
+    holeDia = boreDia + clearance;
+}
+            let maxLift = 0;
+            if (state.controlPoints && state.controlPoints.length) {
+                maxLift = Math.max(...state.controlPoints.map(p=>p.lift||0));
+            }
+            const maxCamRadius = (state.rBase || 40) + maxLift;
+            const bottomY = -(maxCamRadius + 10);
+            const topY = (state.fulcrum.y - 14) - platT;
+            const wallHeight = topY - bottomY;
+            const wallCenterY = (topY + bottomY)/2;
+            const xStart = -60;
+            const xEnd = state.fulcrum.x + platW/2 + 5;
+            const wallLenX = xEnd - xStart;
+            const wallCenterX = (xStart + xEnd)/2;
+            const zPosA = platD/2 - wallThick/2;
+            const zPosB = -platD/2 + wallThick/2;
+
+            const guideNarrowing = GUIDE_NARROWING;
+            const guideWidthX = wallLenX - guideNarrowing;
+            const guideThickness = 6;
+            const guideClearance = 0.4;
+            const guideYLower = maxCamRadius + 15;
+            const guideYUpper = guideYLower + GUIDES_DISTANCE;
+
+            const buildOneWall = (name, zPos) => {
+                try {
+                    const box = BABYLON.MeshBuilder.CreateBox(name+'_boxTmp', {width: wallLenX, height: wallHeight, depth: wallThick}, babylonScene);
+                    box.position.x = wallCenterX;
+                    box.position.y = wallCenterY;
+                    box.position.z = zPos;
+                    box.computeWorldMatrix(true);
+                    const hole = BABYLON.MeshBuilder.CreateCylinder(name+'_holeTmp', {diameter: holeDia, height: wallThick+4, tessellation: 24}, babylonScene);
+                    hole.rotation.x = Math.PI/2;
+                    hole.position.x = 0;
+                    hole.position.y = 0;
+                    hole.position.z = zPos;
+                    hole.computeWorldMatrix(true);
+
+                    const guideSlotLower = BABYLON.MeshBuilder.CreateBox(name+'_guideSlotLowerTmp', {width: guideWidthX + guideClearance, height: guideThickness + guideClearance, depth: wallThick+4}, babylonScene);
+                    guideSlotLower.position.x = wallCenterX;
+                    guideSlotLower.position.y = guideYLower;
+                    guideSlotLower.position.z = zPos;
+                    guideSlotLower.computeWorldMatrix(true);
+
+                    const guideSlotUpper = BABYLON.MeshBuilder.CreateBox(name+'_guideSlotUpperTmp', {width: guideWidthX + guideClearance, height: guideThickness + guideClearance, depth: wallThick+4}, babylonScene);
+                    guideSlotUpper.position.x = wallCenterX;
+                    guideSlotUpper.position.y = guideYUpper;
+                    guideSlotUpper.position.z = zPos;
+                    guideSlotUpper.computeWorldMatrix(true);
+
+                    let result = null;
+                    if (typeof BABYLON.CSG !== 'undefined') {
+                        const boxCSG = BABYLON.CSG.FromMesh(box);
+                        const holeCSG = BABYLON.CSG.FromMesh(hole);
+                        const slotLowerCSG = BABYLON.CSG.FromMesh(guideSlotLower);
+                        const slotUpperCSG = BABYLON.CSG.FromMesh(guideSlotUpper);
+                        let sub = boxCSG.subtract(holeCSG);
+                        sub = sub.subtract(slotLowerCSG);
+                        sub = sub.subtract(slotUpperCSG);
+                        result = sub.toMesh(name, structuralMatWall, babylonScene);
+                        result.material = structuralMatWall;
+                        try { box.dispose(); } catch(e){}
+                        try { hole.dispose(); } catch(e){}
+                        try { guideSlotLower.dispose(); } catch(e){}
+                        try { guideSlotUpper.dispose(); } catch(e){}
+                    } else {
+                        result = box;
+                        result.material = structuralMatWall;
+                        try { hole.dispose(); } catch(e){}
+                        try { guideSlotLower.dispose(); } catch(e){}
+                        try { guideSlotUpper.dispose(); } catch(e){}
+                    }
+                    if (result) result.setEnabled(!!state.showStructural);
+                    return result;
+                } catch(e) { console.warn('wall build fail', name, e); return null; }
+            };
+            sideWallAMesh = buildOneWall('sideWallA', zPosA);
+            sideWallBMesh = buildOneWall('sideWallB', zPosB);
+        }
+
+                function rebuildGuidePlate3D() {
+            if (!babylonScene) return;
+            ensureStructuralMaterials();
+            if (guidePlateMesh) { try { guidePlateMesh.dispose(); } catch(e){} guidePlateMesh = null; }
+            if (guidePlateMeshUpper) { try { guidePlateMeshUpper.dispose(); } catch(e){} guidePlateMeshUpper = null; }
+
+            const platW = state.supportPlatformWidth || 60;
+            const platD = state.supportPlatformDepth || 80;
+
+            let maxLift = 0;
+            if (state.controlPoints && state.controlPoints.length) {
+                maxLift = Math.max(...state.controlPoints.map(p=>p.lift||0));
+            }
+            const maxCamRadius = (state.rBase || 40) + maxLift;
+            const guideYLower = maxCamRadius + 15;
+            const guideYUpper = guideYLower + GUIDES_DISTANCE;
+
+            const xStart = -60;
+            const xEnd = state.fulcrum.x + platW/2 + 5;
+            const wallLenX = xEnd - xStart;
+            const wallCenterX = (xStart + xEnd)/2;
+
+            const guideThickness = 6;
+            const guideNarrowing = GUIDE_NARROWING;
+            const guideWidthX = wallLenX - guideNarrowing;
+            const guideDepthZ = platD;
+
+            const isPlate = (state.followerTopType === 'plate');
+            const WIDE_WIDTH = 42;
+            const NARROW_WIDTH = 10;
+            const RODS_DISTANCE = 24;
+            const ROD_DEPTH = 4;
+            let holeWidthX, holeDepthZ;
+            if (isPlate) {
+                holeWidthX = WIDE_WIDTH + 4;
+                holeDepthZ = RODS_DISTANCE + ROD_DEPTH + 8;
+            } else {
+                holeWidthX = NARROW_WIDTH + 4;
+                holeDepthZ = RODS_DISTANCE + ROD_DEPTH + 8;
+            }
+
+            const createOneGuide = (name, yPos) => {
+                try {
+                    const box = BABYLON.MeshBuilder.CreateBox(name+'_boxTmp', {width: guideWidthX, height: guideThickness, depth: guideDepthZ}, babylonScene);
+                    box.position.x = wallCenterX;
+                    box.position.y = yPos;
+                    box.position.z = 0;
+                    box.computeWorldMatrix(true);
+
+                    const holeBox = BABYLON.MeshBuilder.CreateBox(name+'_holeTmp', {width: holeWidthX, height: guideThickness+4, depth: holeDepthZ}, babylonScene);
+                    holeBox.position.x = 0;
+                    holeBox.position.y = yPos;
+                    holeBox.position.z = 0;
+                    holeBox.computeWorldMatrix(true);
+
+                    let result = null;
+                    if (typeof BABYLON.CSG !== 'undefined') {
+                        const boxCSG = BABYLON.CSG.FromMesh(box);
+                        const holeCSG = BABYLON.CSG.FromMesh(holeBox);
+                        const sub = boxCSG.subtract(holeCSG);
+                        result = sub.toMesh(name, structuralMatGuide, babylonScene);
+                        result.material = structuralMatGuide;
+                        try { box.dispose(); } catch(e){}
+                        try { holeBox.dispose(); } catch(e){}
+                    } else {
+                        result = box;
+                        result.material = structuralMatGuide;
+                        try { holeBox.dispose(); } catch(e){}
+                    }
+                    if (result) result.setEnabled(!!state.showStructural);
+                    return result;
+                } catch(e) { console.warn('guide plate build fail', name, e); return null; }
+            };
+
+            guidePlateMesh = createOneGuide('guidePlateLower', guideYLower);
+            guidePlateMeshUpper = createOneGuide('guidePlateUpper', guideYUpper);
+        }
+
+        function rebuildBasePlate3D() {
+            if (!babylonScene) return;
+            ensureStructuralMaterials();
+            if (basePlateMesh) { try { basePlateMesh.dispose(); } catch(e){} basePlateMesh = null; }
+
+            const platW = state.supportPlatformWidth || 60;
+            const platD = state.supportPlatformDepth || 80;
+
+            let maxLift = 0;
+            if (state.controlPoints && state.controlPoints.length) {
+                maxLift = Math.max(...state.controlPoints.map(p=>p.lift||0));
+            }
+            const maxCamRadius = (state.rBase || 40) + maxLift;
+            const bottomY = -(maxCamRadius + 10);
+
+            const xStart = -60; // esteso lato opposto fulcro
+            const xEnd = state.fulcrum.x + platW/2 + 5;
+            const wallLenX = xEnd - xStart;
+            const wallCenterX = (xStart + xEnd)/2;
+
+            const baseThickness = 10;
+            const baseWidthX = wallLenX + 10;
+            const baseDepthZ = platD + 10;
+
+            try {
+                basePlateMesh = BABYLON.MeshBuilder.CreateBox('basePlate', {width: baseWidthX, height: baseThickness, depth: baseDepthZ}, babylonScene);
+                basePlateMesh.material = structuralMatBase;
+                basePlateMesh.position.x = wallCenterX;
+                basePlateMesh.position.y = bottomY - baseThickness/2;
+                basePlateMesh.position.z = 0;
+                basePlateMesh.setEnabled(!!state.showStructural);
+            } catch(e) { console.warn('base plate build fail', e); }
+        }
+
+        function rebuildAllStructural() {
+            rebuildSupportPlatform3D();
+            rebuildSideWalls3D();
+            rebuildGuidePlate3D();
+            rebuildBasePlate3D();
+            rebuildCamShaft3D();
+        }
+        window.rebuildAllStructural = rebuildAllStructural;
+        window.rebuildCamShaft3D = rebuildCamShaft3D;
+        window.rebuildSupportPlatform3D = rebuildSupportPlatform3D;
+        window.rebuildSideWalls3D = rebuildSideWalls3D;
+        window.rebuildGuidePlate3D = rebuildGuidePlate3D;
+        window.rebuildBasePlate3D = rebuildBasePlate3D;
+        
+
+        function updateBabylon3D() {
+            if (!babylonScene || typeof state === 'undefined') return;
+            if (cam3dMesh) cam3dMesh.rotation.z = state.angleRad;
+            if (typeof camShaftMesh !== 'undefined' && camShaftMesh) {
+                // shaft follows cam rotation (D-flat locked)
+                if (camShaftPivot) camShaftPivot.rotation.z = state.angleRad;
+                // keep position at cam center
+                camShaftMesh.position.x = 0;
+                camShaftMesh.position.y = 0;
+            }
+            // platform follows fulcrum if dragged
+            if (typeof supportPlatformMesh !== 'undefined' && supportPlatformMesh) {
+                const t = state.supportPlatformThickness || 10;
+                const topY = (state.fulcrum.y - 14);
+                supportPlatformMesh.position.x = state.fulcrum.x;
+                supportPlatformMesh.position.y = topY - t/2;
+            }
+            // walls need rebuild if fulcrum moves (hole must stay at 0,0)
+            if (typeof sideWallAMesh !== 'undefined' && typeof window._lastFulcrumX !== 'undefined') {
+                if (Math.abs(window._lastFulcrumX - state.fulcrum.x) > 0.5 || Math.abs(window._lastPlatW - state.supportPlatformWidth) > 0.5) {
+                    if (typeof rebuildSideWalls3D === 'function') rebuildSideWalls3D();
+                    window._lastFulcrumX = state.fulcrum.x;
+                    window._lastPlatW = state.supportPlatformWidth;
+                }
+            } else {
+                window._lastFulcrumX = state.fulcrum.x;
+                window._lastPlatW = state.supportPlatformWidth;
+            }
+            const normalizedAngle = (state.angleRad % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const currentLift = (typeof getInterpolatedLift === 'function')? getInterpolatedLift(normalizedAngle) : 0;
+            const bottomY = state.rBase + currentLift + state.rRoller, topY = bottomY + 110, centerY = (bottomY + topY) / 2;
+            if (followerRodA && followerRodB) { followerRodA.position.x = 0; followerRodA.position.y = centerY; followerRodB.position.x = 0; followerRodB.position.y = centerY; }
+            if (bottomRollerMesh) { bottomRollerMesh.position.x = 0; bottomRollerMesh.position.y = bottomY; bottomRollerMesh.position.z = 0; const r = state.rRoller || 10, scale = (r*2) / 20; bottomRollerMesh.scaling.x = scale; bottomRollerMesh.scaling.z = scale; bottomRollerMesh.scaling.y = 1.0; }
+            if (bottomPinMesh) { bottomPinMesh.position.x = 0; bottomPinMesh.position.y = bottomY; bottomPinMesh.position.z = 0; }
+            if (state.followerTopType === 'roller') {
+                if (topRollerMesh) { topRollerMesh.setEnabled(true); topRollerMesh.position.x = 0; topRollerMesh.position.y = topY; topRollerMesh.position.z = 0; const tr = state.topRollerRadius || 12, scaleTop = (tr*2) / 24; topRollerMesh.scaling.x = scaleTop; topRollerMesh.scaling.z = scaleTop; topRollerMesh.scaling.y = 1.0; }
+                if (topPinMesh) { topPinMesh.setEnabled(true); topPinMesh.position.x = 0; topPinMesh.position.y = topY; topPinMesh.position.z = 0; }
+                if (topPlatePivot) topPlatePivot.setEnabled(false);
+            } else {
+                if (topRollerMesh) topRollerMesh.setEnabled(false); if (topPinMesh) topPinMesh.setEnabled(false);
+                if (topPlatePivot) {
+                    topPlatePivot.setEnabled(true);
+                    topPlatePivot.position.x = 0; topPlatePivot.position.y = bottomY + 110; topPlatePivot.position.z = 0;
+                    if (topPlateMesh) topPlateMesh.scaling.x = (state.plateWidth || 70)/70;
+                }
+            }
+            if (fulcrumTriA) { fulcrumTriA.position.x = state.fulcrum.x; fulcrumTriA.position.y = state.fulcrum.y; }
+            if (fulcrumTriB) { fulcrumTriB.position.x = state.fulcrum.x; fulcrumTriB.position.y = state.fulcrum.y; }
+            if (fulcrumPinMesh) { fulcrumPinMesh.position.x = state.fulcrum.x; fulcrumPinMesh.position.y = state.fulcrum.y; }
+            if (rockerPivot) {
+                rockerPivot.position.x = state.fulcrum.x; rockerPivot.position.y = state.fulcrum.y; rockerPivot.position.z = 0;
+                let alpha = 0; const Fx = state.fulcrum.x, Fy = state.fulcrum.y;
+                if (state.followerTopType === 'roller') {
+                    const C = {x: 0, y: topY}, R = state.topRollerRadius || 12, h = 5, Rprime = R + h, dx = C.x - Fx, dy = C.y - Fy, d = Math.hypot(dx, dy);
+                    if (d > Rprime) { const alpha0 = Math.asin(Math.min(1, Rprime/d)), thetaFC = Math.atan2(dy, dx), theta1 = thetaFC + alpha0, theta2 = thetaFC - alpha0, T1y = Fy + Math.sqrt(d*d - Rprime*Rprime) * Math.sin(theta1), T2y = Fy + Math.sqrt(d*d - Rprime*Rprime) * Math.sin(theta2); alpha = (T2y >= T1y)? theta2 : theta1; }
+                } else {
+                    const plateCenterY = bottomY + 110, plateThickness = 4, plateTopY = plateCenterY + plateThickness / 2, L = state.rockerLeftLen, h = 5, dy = plateTopY - Fy, R = Math.hypot(L, h), phi = Math.atan2(h, L), sinVal = dy / R;
+                    if (Math.abs(sinVal) > 1) { let clampedDy = Math.sign(dy) * R; alpha = Math.asin(Math.max(-1, Math.min(1, clampedDy / R)) ) - phi; }
+                    else { const asinVal = Math.asin(Math.max(-1, Math.min(1, sinVal))), a1 = asinVal - phi, a2 = Math.PI - asinVal - phi; const evalA = (a) => { const plX = Fx + L * Math.cos(a) - h * Math.sin(a), plY = Fy + L * Math.sin(a) + h * Math.cos(a); return { a, plX, plY, cosA: Math.cos(a) }; }; const e1 = evalA(a1), e2 = evalA(a2); let chosen = e1; if (Fx > 0) { if (e1.cosA > 0 && e2.cosA < 0) chosen = e2; else if (e1.cosA < 0 && e2.cosA > 0) chosen = e1; else if (Math.abs(e2.plX) < Math.abs(e1.plX)) chosen = e2; } else { if (Math.abs(e2.plX) < Math.abs(e1.plX)) chosen = e2; } alpha = chosen.a; }
+                }
+                rockerPivot.rotation.z = alpha;
+            }
+        }
+
+        function setupThicknessSliders() {
+            const s1 = document.getElementById('input-cam-thickness'), s2 = document.getElementById('input-cam-thickness-ctrl'), l1 = document.getElementById('label-cam-thickness'), l2 = document.getElementById('label-cam-thickness-ctrl');
+            const onChange = (val) => { if (typeof state!== 'undefined') state.camThickness = parseInt(val,10); if (l1) l1.textContent = val + ' mm'; if (l2) l2.textContent = val + ' mm'; if (s1 && s1.value!= val) s1.value = val; if (s2 && s2.value!= val) s2.value = val; rebuildBabylonCam(); };
+            if (s1) s1.addEventListener('input', e => onChange(e.target.value)); if (s2) s2.addEventListener('input', e => onChange(e.target.value));
+
+            // --- foro perno camma ---
+            const boreDiaInput = document.getElementById('input-cam-bore-dia');
+            const boreDiaLabel = document.getElementById('label-cam-bore-dia');
+            if (boreDiaInput) {
+                boreDiaInput.addEventListener('input', e => {
+                    const v = parseFloat(e.target.value);
+                    state.camBoreDia = v;
+                    if (boreDiaLabel) boreDiaLabel.textContent = v + ' mm';
+                    rebuildBabylonCam();
+                });
+            }
+            const boreRadios = document.querySelectorAll('input[name="cam-bore-type"]');
+            boreRadios.forEach(r => {
+                r.addEventListener('change', e => {
+                    if (e.target.checked) {
+                        state.camBoreType = e.target.value;
+                        // update UI selection highlight
+                        document.querySelectorAll('[id^="label-bore-"]').forEach(lbl => lbl.classList.remove('bg-indigo-50','border-indigo-300'));
+                        const activeLbl = document.getElementById('label-bore-' + e.target.value);
+                        if (activeLbl) activeLbl.classList.add('bg-indigo-50','border-indigo-300');
+                        rebuildBabylonCam();
+                    }
+                });
+            });
+
+            // --- piano supporto ---
+            const wInput = document.getElementById('input-support-width'), wLabel = document.getElementById('label-support-width');
+            const dInput = document.getElementById('input-support-depth'), dLabel = document.getElementById('label-support-depth');
+            const tInput = document.getElementById('input-support-thickness'), tLabel = document.getElementById('label-support-thickness');
+            if (wInput) wInput.addEventListener('input', e => {
+                const v = parseFloat(e.target.value); state.supportPlatformWidth = v; if (wLabel) wLabel.textContent = v + ' mm'; rebuildAllStructural();
+            });
+            if (dInput) dInput.addEventListener('input', e => {
+                const v = parseFloat(e.target.value); state.supportPlatformDepth = v; if (dLabel) dLabel.textContent = v + ' mm'; rebuildAllStructural();
+            });
+            if (tInput) tInput.addEventListener('input', e => {
+                const v = parseFloat(e.target.value); state.supportPlatformThickness = v; if (tLabel) tLabel.textContent = v + ' mm'; rebuildAllStructural();
+            });
+
+                        // --- checkbox struttura ---
+            const chkStruct = document.getElementById('chk-structural');
+            if (chkStruct) {
+                chkStruct.addEventListener('change', e => {
+                    state.showStructural = e.target.checked;
+                    const en = !!state.showStructural;
+                    if (camShaftMesh) camShaftMesh.setEnabled(en);
+                    if (supportPlatformMesh) supportPlatformMesh.setEnabled(en);
+                    if (sideWallAMesh) sideWallAMesh.setEnabled(en);
+                    if (sideWallBMesh) sideWallBMesh.setEnabled(en);
+                    if (guidePlateMesh) guidePlateMesh.setEnabled(en);
+                    if (guidePlateMeshUpper) guidePlateMeshUpper.setEnabled(en);
+                    if (basePlateMesh) basePlateMesh.setEnabled(en);
+                });
+            }
+        }
+
+        function updateBoreTypeUI() {
+            const type = state.camBoreType || 'circle';
+            document.querySelectorAll('[id^="label-bore-"]').forEach(lbl => lbl.classList.remove('bg-indigo-50','border-indigo-300'));
+            const activeLbl = document.getElementById('label-bore-' + type);
+            if (activeLbl) activeLbl.classList.add('bg-indigo-50','border-indigo-300');
+            const radio = document.querySelector(`input[name="cam-bore-type"][value="${type}"]`);
+            if (radio) radio.checked = true;
+        }
+        window.updateBoreTypeUI = updateBoreTypeUI;
+        
+
+        function meshToSTLAscii(mesh, name) {
+            if (!mesh) return null; if (mesh.isEnabled &&!mesh.isEnabled()) return null; if (mesh.getTotalVertices() === 0) return null;
+            const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind), indices = mesh.getIndices(); if (!positions) return null;
+            mesh.computeWorldMatrix(true); const worldMatrix = mesh.getWorldMatrix(); const transformed = [];
+            for (let i = 0; i < positions.length; i += 3) { const v = new BABYLON.Vector3(positions[i], positions[i+1], positions[i+2]); const wv = BABYLON.Vector3.TransformCoordinates(v, worldMatrix); transformed.push(wv.x, wv.y, wv.z); }
+            let stl = `solid ${name}\n`;
+            const addFacet = (p1x,p1y,p1z, p2x,p2y,p2z, p3x,p3y,p3z) => {
+                const ux = p2x - p1x, uy = p2y - p1y, uz = p2z - p1z, vx = p3x - p1x, vy = p3y - p1y, vz = p3z - p1z; let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const len = Math.hypot(nx, ny, nz); if (len > 0) { nx/=len; ny/=len; nz/=len; }
+                stl += ` facet normal ${nx.toFixed(6)} ${ny.toFixed(6)} ${nz.toFixed(6)}\n outer loop\n vertex ${p1x.toFixed(6)} ${p1y.toFixed(6)} ${p1z.toFixed(6)}\n vertex ${p2x.toFixed(6)} ${p2y.toFixed(6)} ${p2z.toFixed(6)}\n vertex ${p3x.toFixed(6)} ${p3y.toFixed(6)} ${p3z.toFixed(6)}\n endloop\n endfacet\n`;
+            };
+            if (indices && indices.length >= 3) { for (let i = 0; i < indices.length; i += 3) { const i1 = indices[i]*3, i2 = indices[i+2]*3, i3 = indices[i+1]*3; addFacet(transformed[i1], transformed[i1+1], transformed[i1+2], transformed[i2], transformed[i2+1], transformed[i2+2], transformed[i3], transformed[i3+1], transformed[i3+2]); } }
+            else { for (let i = 0; i < transformed.length; i += 9) { addFacet(transformed[i], transformed[i+1], transformed[i+2], transformed[i+3], transformed[i+4], transformed[i+5], transformed[i+6], transformed[i+7], transformed[i+8]); } }
+            stl += `endsolid ${name}\n`; return stl;
+        }
+        function meshToSTLForce(mesh, name) {
+            if (!mesh) return null; if (mesh.getTotalVertices() === 0) return null;
+            const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind), indices = mesh.getIndices(); if (!positions) return null;
+            mesh.computeWorldMatrix(true); const worldMatrix = mesh.getWorldMatrix(); const transformed = [];
+            for (let i = 0; i < positions.length; i += 3) { const v = new BABYLON.Vector3(positions[i], positions[i+1], positions[i+2]); const wv = BABYLON.Vector3.TransformCoordinates(v, worldMatrix); transformed.push(wv.x, wv.y, wv.z); }
+            let stl = `solid ${name}\n`;
+            const addFacet = (p1x,p1y,p1z, p2x,p2y,p2z, p3x,p3y,p3z) => {
+                const ux = p2x - p1x, uy = p2y - p1y, uz = p2z - p1z, vx = p3x - p1x, vy = p3y - p1y, vz = p3z - p1z; let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const len = Math.hypot(nx, ny, nz); if (len > 0) { nx/=len; ny/=len; nz/=len; }
+                stl += ` facet normal ${nx.toFixed(6)} ${ny.toFixed(6)} ${nz.toFixed(6)}\n outer loop\n vertex ${p1x.toFixed(6)} ${p1y.toFixed(6)} ${p1z.toFixed(6)}\n vertex ${p2x.toFixed(6)} ${p2y.toFixed(6)} ${p2z.toFixed(6)}\n vertex ${p3x.toFixed(6)} ${p3y.toFixed(6)} ${p3z.toFixed(6)}\n endloop\n endfacet\n`;
+            };
+            if (indices && indices.length >= 3) { for (let i = 0; i < indices.length; i += 3) { const i1 = indices[i]*3, i2 = indices[i+2]*3, i3 = indices[i+1]*3; addFacet(transformed[i1], transformed[i1+1], transformed[i1+2], transformed[i2], transformed[i2+1], transformed[i2+2], transformed[i3], transformed[i3+1], transformed[i3+2]); } }
+            else { for (let i = 0; i < transformed.length; i += 9) { addFacet(transformed[i], transformed[i+1], transformed[i+2], transformed[i+3], transformed[i+4], transformed[i+5], transformed[i+6], transformed[i+7], transformed[i+8]); } }
+            stl += `endsolid ${name}\n`; return stl;
+        }
+
+        function exportMechanismSTL() {
+            if (!babylonScene) { alert('Scena 3D non inizializzata'); return; }
+            if (typeof updateBabylon3D === 'function') updateBabylon3D();
+            if (typeof rebuildBabylonCam === 'function') rebuildBabylonCam();
+            const meshesToExport = [];
+            if (cam3dMesh) meshesToExport.push({ mesh: cam3dMesh, name: '01_camma_forata_' + (state.camBoreType||'circle') + '_' + (state.camBoreDia||8) + 'mm' });
+            if (typeof followerRodA!== 'undefined' && followerRodA) meshesToExport.push({ mesh: followerRodA, name: '02_follower_asta_A' });
+            if (typeof followerRodB!== 'undefined' && followerRodB) meshesToExport.push({ mesh: followerRodB, name: '03_follower_asta_B' });
+            if (typeof bottomRollerMesh!== 'undefined' && bottomRollerMesh) meshesToExport.push({ mesh: bottomRollerMesh, name: '04_rullo_inferiore' });
+            if (typeof topRollerMesh!== 'undefined' && topRollerMesh) meshesToExport.push({ mesh: topRollerMesh, name: '05_rullo_superiore', checkEnabled: true });
+            if (typeof topPlateMesh!== 'undefined' && topPlateMesh) meshesToExport.push({ mesh: topPlateMesh, name: '05_piatto_superiore', checkEnabled: true, parentCheck: true });
+            if (typeof topPlatePins!== 'undefined' && topPlatePins.length) {
+                topPlatePins.forEach((p,i)=>{ if(p) meshesToExport.push({ mesh: p, name: `05_piatto_perno_${i+1}`, checkEnabled: true, parentCheck: true }); });
+            }
+            if (typeof bottomPinMesh!== 'undefined' && bottomPinMesh) meshesToExport.push({ mesh: bottomPinMesh, name: '06_perno_inferiore' });
+            if (typeof topPinMesh!== 'undefined' && topPinMesh) meshesToExport.push({ mesh: topPinMesh, name: '07_perno_superiore', checkEnabled: true });
+            if (typeof fulcrumTriA!== 'undefined' && fulcrumTriA) meshesToExport.push({ mesh: fulcrumTriA, name: '08_fulcro_triangolo_A' });
+            if (typeof fulcrumTriB!== 'undefined' && fulcrumTriB) meshesToExport.push({ mesh: fulcrumTriB, name: '09_fulcro_triangolo_B' });
+            if (typeof fulcrumPinMesh!== 'undefined' && fulcrumPinMesh) meshesToExport.push({ mesh: fulcrumPinMesh, name: '10_fulcro_perno' });
+            if (typeof window.rockerSingleMesh!== 'undefined' && window.rockerSingleMesh) { meshesToExport.push({ mesh: window.rockerSingleMesh, name: '11_bilanciere' }); }
+
+            let combinedSTL = '';
+            let exportedCount = 0;
+            for (const item of meshesToExport) {
+                try {
+                    if (item.checkEnabled) {
+                        if (item.parentCheck) {
+                            if (typeof topPlatePivot!== 'undefined' && topPlatePivot && !topPlatePivot.isEnabled()) continue;
+                        } else {
+                            if (item.mesh.isEnabled && !item.mesh.isEnabled()) continue;
+                        }
+                    }
+                    const stl = meshToSTLForce(item.mesh, item.name);
+                    if (stl) { combinedSTL += stl + '\n'; exportedCount++; }
+                } catch (e) { console.error('Errore export meccanismo', item.name, e); }
+            }
+            if (exportedCount===0) { alert('Nessuna mesh meccanismo da esportare'); return; }
+            const blob = new Blob([combinedSTL], { type: 'application/sla' });
+            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'cam-followe.stl'; document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+        }
+
+        function exportStructureSTL() {
+            if (!babylonScene) { alert('Scena 3D non inizializzata'); return; }
+            if (typeof rebuildAllStructural === 'function') rebuildAllStructural();
+            const meshesToExport = [];
+            if (typeof camShaftMesh!== 'undefined' && camShaftMesh) meshesToExport.push({ mesh: camShaftMesh, name: '01b_perno_camma_' + (state.camBoreType||'circle') + '_' + (state.camBoreDia||8) + 'mm' });
+            if (typeof supportPlatformMesh!== 'undefined' && supportPlatformMesh) meshesToExport.push({ mesh: supportPlatformMesh, name: '12_piano_supporto_fulcro_' + (state.supportPlatformWidth||60) + 'x' + (state.supportPlatformDepth||80) + 'x' + (state.supportPlatformThickness||5) });
+            if (typeof sideWallAMesh!== 'undefined' && sideWallAMesh) meshesToExport.push({ mesh: sideWallAMesh, name: '13_parete_laterale_A_forata_tonda' });
+            if (typeof sideWallBMesh!== 'undefined' && sideWallBMesh) meshesToExport.push({ mesh: sideWallBMesh, name: '13b_parete_laterale_B_forata_tonda' });
+            if (typeof guidePlateMesh!== 'undefined' && guidePlateMesh) meshesToExport.push({ mesh: guidePlateMesh, name: '14_tavoletta_guida_follower_inferiore' });
+            if (typeof guidePlateMeshUpper!== 'undefined' && guidePlateMeshUpper) meshesToExport.push({ mesh: guidePlateMeshUpper, name: '14b_tavoletta_guida_follower_superiore_30mm' });
+            if (typeof guidePlateMesh!== 'undefined' && guidePlateMesh) meshesToExport.push({ mesh: guidePlateMesh, name: '14_tavoletta_guida_follower_forata' });
+            if (typeof basePlateMesh!== 'undefined' && basePlateMesh) meshesToExport.push({ mesh: basePlateMesh, name: '15_piano_appoggio_pareti' });
+
+            let combinedSTL = '';
+            let exportedCount = 0;
+            for (const item of meshesToExport) {
+                try {
+                    const stl = meshToSTLForce(item.mesh, item.name);
+                    if (stl) { combinedSTL += stl + '\n'; exportedCount++; }
+                } catch (e) { console.error('Errore export struttura', item.name, e); }
+            }
+            if (exportedCount===0) { alert('Nessuna mesh struttura da esportare - verifica di aver costruito la struttura'); return; }
+            const blob = new Blob([combinedSTL], { type: 'application/sla' });
+            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'structure.stl'; document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+        }
+
+        // Legacy ZIP export kept for compatibility
+        async function exportSceneSTL() {
+            if (!babylonScene) { alert('Scena 3D non inizializzata'); return; } if (typeof updateBabylon3D === 'function') updateBabylon3D();
+            const meshesToExport = [];
+            if (cam3dMesh) meshesToExport.push({ mesh: cam3dMesh, name: '01_camma_forata_' + (state.camBoreType||'circle') + '_' + (state.camBoreDia||8) + 'mm' });
+            if (typeof camShaftMesh!== 'undefined' && camShaftMesh) meshesToExport.push({ mesh: camShaftMesh, name: '01b_perno_camma_' + (state.camBoreType||'circle') });
+            if (typeof supportPlatformMesh!== 'undefined' && supportPlatformMesh) meshesToExport.push({ mesh: supportPlatformMesh, name: '12_piano_supporto_fulcro' });
+            if (typeof sideWallAMesh!== 'undefined' && sideWallAMesh) meshesToExport.push({ mesh: sideWallAMesh, name: '13_parete_laterale_A_forata_tonda' });
+            if (typeof sideWallBMesh!== 'undefined' && sideWallBMesh) meshesToExport.push({ mesh: sideWallBMesh, name: '13b_parete_laterale_B_forata_tonda' });
+            if (typeof guidePlateMesh!== 'undefined' && guidePlateMesh) meshesToExport.push({ mesh: guidePlateMesh, name: '14_tavoletta_guida_follower_inferiore' });
+            if (typeof guidePlateMeshUpper!== 'undefined' && guidePlateMeshUpper) meshesToExport.push({ mesh: guidePlateMeshUpper, name: '14b_tavoletta_guida_follower_superiore_30mm' });
+            if (typeof guidePlateMesh!== 'undefined' && guidePlateMesh) meshesToExport.push({ mesh: guidePlateMesh, name: '14_tavoletta_guida_follower_forata' });
+            if (typeof basePlateMesh!== 'undefined' && basePlateMesh) meshesToExport.push({ mesh: basePlateMesh, name: '15_piano_appoggio_pareti' });
+            if (typeof followerRodA!== 'undefined' && followerRodA) meshesToExport.push({ mesh: followerRodA, name: '02_follower_asta_A' });
+            if (typeof followerRodB!== 'undefined' && followerRodB) meshesToExport.push({ mesh: followerRodB, name: '03_follower_asta_B' });
+            if (typeof bottomRollerMesh!== 'undefined' && bottomRollerMesh) meshesToExport.push({ mesh: bottomRollerMesh, name: '04_rullo_inferiore' });
+            if (typeof topRollerMesh!== 'undefined' && topRollerMesh && topRollerMesh.isEnabled()) meshesToExport.push({ mesh: topRollerMesh, name: '05_rullo_superiore' });
+            if (typeof topPlatePivot!== 'undefined' && topPlatePivot && topPlatePivot.isEnabled()) {
+                if (topPlateMesh) meshesToExport.push({ mesh: topPlateMesh, name: '05_piatto_superiore' });
+                topPlatePins.forEach((p,i)=>{ if(p) meshesToExport.push({ mesh: p, name: `05_piatto_perno_${i+1}` }); });
+            }
+            if (typeof bottomPinMesh!== 'undefined' && bottomPinMesh) meshesToExport.push({ mesh: bottomPinMesh, name: '06_perno_inferiore' });
+            if (typeof topPinMesh!== 'undefined' && topPinMesh && topPinMesh.isEnabled()) meshesToExport.push({ mesh: topPinMesh, name: '07_perno_superiore' });
+            if (typeof fulcrumTriA!== 'undefined' && fulcrumTriA) meshesToExport.push({ mesh: fulcrumTriA, name: '08_fulcro_triangolo_A' });
+            if (typeof fulcrumTriB!== 'undefined' && fulcrumTriB) meshesToExport.push({ mesh: fulcrumTriB, name: '09_fulcro_triangolo_B' });
+            if (typeof fulcrumPinMesh!== 'undefined' && fulcrumPinMesh) meshesToExport.push({ mesh: fulcrumPinMesh, name: '10_fulcro_perno' });
+            if (typeof window.rockerSingleMesh!== 'undefined' && window.rockerSingleMesh) { meshesToExport.push({ mesh: window.rockerSingleMesh, name: '11_bilanciere' }); }
+            if (meshesToExport.length === 0) { alert('Nessuna mesh da esportare'); return; }
+            const zip = new JSZip(); let exportedCount = 0;
+            for (const item of meshesToExport) { try { const stl = meshToSTLForce(item.mesh, item.name); if (stl) { zip.file(item.name + '.stl', stl); exportedCount++; } } catch (e) { console.error('Errore export', item.name, e); } }
+            const readme = `Scena Camma-Bilanciere ${new Date().toLocaleString('it-IT')}\nCamma con foro perno regolabile: tipo=${state.camBoreType} diam=${state.camBoreDia}mm\nPerno sezione uguale al foro camma, pareti con foro tondo sempre Ø ${state.camBoreDia} + gioco\nPiano supporto fulcro: ${state.supportPlatformWidth}x${state.supportPlatformDepth} spess ${state.supportPlatformThickness}mm\n`;
+            zip.file('README.txt', readme);
+            const content = await zip.generateAsync({ type: 'blob' }); const url = URL.createObjectURL(content); const a = document.createElement('a'); a.href = url; a.download = `scena_camma_${Date.now()}.zip`; document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnMech = document.getElementById('btn-export-mechanism');
+            const btnStruct = document.getElementById('btn-export-structure');
+            const btnOld = document.getElementById('btn-export-stl');
+            if (btnMech) btnMech.addEventListener('click', exportMechanismSTL);
+            if (btnStruct) btnStruct.addEventListener('click', exportStructureSTL);
+            if (btnOld) btnOld.addEventListener('click', exportSceneSTL);
+        });
+        setTimeout(() => {
+            const btnMech = document.getElementById('btn-export-mechanism');
+            const btnStruct = document.getElementById('btn-export-structure');
+            const btnOld = document.getElementById('btn-export-stl');
+            if (btnMech && !btnMech._hasListener) { btnMech.addEventListener('click', exportMechanismSTL); btnMech._hasListener = true; }
+            if (btnStruct && !btnStruct._hasListener) { btnStruct.addEventListener('click', exportStructureSTL); btnStruct._hasListener = true; }
+            if (btnOld && !btnOld._hasListener) { btnOld.addEventListener('click', exportSceneSTL); btnOld._hasListener = true; }
+        }, 1000);
+    </script>
+</body>
+</html>
